@@ -21,7 +21,8 @@ ScreenGui.Name = "GhostlineUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-pcall(function() ScreenGui.Parent = CoreGui end)
+local guiParent = pcall(function() return gethui() end) and gethui() or CoreGui
+pcall(function() ScreenGui.Parent = guiParent end)
 if not ScreenGui.Parent then ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
 
 local NotifContainer = Instance.new("Frame")
@@ -277,4 +278,142 @@ function Ghostline.new(config)
             Instance.new("UICorner", Track).CornerRadius = UDim.new(1, 0)
 
             local Fill = Instance.new("Frame", Track)
-            Fill.Size = UDim2.new((val - cfg.Où est le script ? Colle-le ici et je retire tous les commentaires en gardant le reste du code intact.
+            Fill.Size = UDim2.new((val - cfg.Min) / (cfg.Max - cfg.Min), 0, 1, 0)
+            Fill.BackgroundColor3 = Ghostline.Theme.Accent
+            Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
+
+            local isDragging = false
+            local function updateSlider(input)
+                local pos = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+                val = math.floor(cfg.Min + pos * (cfg.Max - cfg.Min))
+                Label.Text = cfg.Name .. " : " .. tostring(val)
+                TweenService:Create(Fill, TweenInfo.new(0.1), {Size = UDim2.new(pos, 0, 1, 0)}):Play()
+                cfg.Callback(val)
+            end
+
+            Track.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    isDragging = true
+                    updateSlider(input)
+                end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDragging = false end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateSlider(input) end
+            end)
+        end
+
+        function Tab:MakeTextbox(cfg)
+            local BoxFrame = Instance.new("Frame", Container)
+            BoxFrame.Size = UDim2.new(1, 0, 0, 35)
+            BoxFrame.BackgroundColor3 = Ghostline.Theme.ElementBackground
+            Instance.new("UICorner", BoxFrame).CornerRadius = UDim.new(0, 6)
+
+            local Label = Instance.new("TextLabel", BoxFrame)
+            Label.Size = UDim2.new(0.5, 0, 1, 0)
+            Label.Position = UDim2.new(0, 10, 0, 0)
+            Label.BackgroundTransparency = 1
+            Label.Text = cfg.Name
+            Label.TextColor3 = Ghostline.Theme.Text
+            Label.Font = Enum.Font.Gotham
+            Label.TextSize = 13
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local Input = Instance.new("TextBox", BoxFrame)
+            Input.Size = UDim2.new(0.4, 0, 0, 25)
+            Input.Position = UDim2.new(0.6, -10, 0.5, -12.5)
+            Input.BackgroundColor3 = Ghostline.Theme.Background
+            Input.Text = ""
+            Input.PlaceholderText = "..."
+            Input.TextColor3 = Ghostline.Theme.Text
+            Input.Font = Enum.Font.Gotham
+            Input.TextSize = 12
+            Instance.new("UICorner", Input).CornerRadius = UDim.new(0, 4)
+
+            Input.FocusLost:Connect(function() cfg.Callback(Input.Text) end)
+        end
+
+        function Tab:MakeKeybind(cfg)
+            local currentKey = cfg.Default or Enum.KeyCode.E
+            local KeyFrame = Instance.new("Frame", Container)
+            KeyFrame.Size = UDim2.new(1, 0, 0, 35)
+            KeyFrame.BackgroundColor3 = Ghostline.Theme.ElementBackground
+            Instance.new("UICorner", KeyFrame).CornerRadius = UDim.new(0, 6)
+
+            local Label = Instance.new("TextLabel", KeyFrame)
+            Label.Size = UDim2.new(0.6, 0, 1, 0)
+            Label.Position = UDim2.new(0, 10, 0, 0)
+            Label.BackgroundTransparency = 1
+            Label.Text = cfg.Name
+            Label.TextColor3 = Ghostline.Theme.Text
+            Label.Font = Enum.Font.Gotham
+            Label.TextSize = 13
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local BindBtn = Instance.new("TextButton", KeyFrame)
+            BindBtn.Size = UDim2.new(0, 80, 0, 25)
+            BindBtn.Position = UDim2.new(1, -90, 0.5, -12.5)
+            BindBtn.BackgroundColor3 = Ghostline.Theme.Background
+            BindBtn.Text = currentKey.Name
+            BindBtn.TextColor3 = Ghostline.Theme.Accent
+            BindBtn.Font = Enum.Font.GothamBold
+            BindBtn.TextSize = 12
+            Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 4)
+
+            local isBinding = false
+            BindBtn.MouseButton1Click:Connect(function()
+                isBinding = true
+                BindBtn.Text = "..."
+            end)
+
+            UserInputService.InputBegan:Connect(function(input, processed)
+                if isBinding and input.UserInputType == Enum.UserInputType.Keyboard then
+                    currentKey = input.KeyCode
+                    BindBtn.Text = currentKey.Name
+                    isBinding = false
+                elseif not processed and input.KeyCode == currentKey and not isBinding then
+                    cfg.Callback()
+                end
+            end)
+        end
+
+        function Tab:MakeColorPicker(cfg)
+            local CPFrame = Instance.new("Frame", Container)
+            CPFrame.Size = UDim2.new(1, 0, 0, 35)
+            CPFrame.BackgroundColor3 = Ghostline.Theme.ElementBackground
+            Instance.new("UICorner", CPFrame).CornerRadius = UDim.new(0, 6)
+
+            local Label = Instance.new("TextLabel", CPFrame)
+            Label.Size = UDim2.new(0.4, 0, 1, 0)
+            Label.Position = UDim2.new(0, 10, 0, 0)
+            Label.BackgroundTransparency = 1
+            Label.Text = cfg.Name
+            Label.TextColor3 = Ghostline.Theme.Text
+            Label.Font = Enum.Font.Gotham
+            Label.TextSize = 13
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+
+            local ColorView = Instance.new("Frame", CPFrame)
+            ColorView.Size = UDim2.new(0, 40, 0, 20)
+            ColorView.Position = UDim2.new(1, -50, 0.5, -10)
+            ColorView.BackgroundColor3 = cfg.Default or Color3.new(1, 1, 1)
+            Instance.new("UICorner", ColorView).CornerRadius = UDim.new(0, 4)
+
+            local ColorBtn = Instance.new("TextButton", ColorView)
+            ColorBtn.Size = UDim2.new(1, 0, 1, 0)
+            ColorBtn.BackgroundTransparency = 1
+            ColorBtn.Text = ""
+
+            ColorBtn.MouseButton1Click:Connect(function()
+                cfg.Callback(ColorView.BackgroundColor3)
+            end)
+        end
+
+        return Tab
+    end
+    return Window
+end
+
+return Ghostline
