@@ -1,6 +1,6 @@
 --[[
     ╔═══════════════════════════════════════════════╗
-    ║   GHOSTLINE UI LIBRARY  v2.0                  ║
+    ║   GHOSTLINE UI LIBRARY  v2.1                  ║
     ║   Liquid Glass · Red Gradient · Fluid Anims   ║
     ╚═══════════════════════════════════════════════╝
 
@@ -16,13 +16,17 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local TextService = game:GetService("TextService")
 local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
 
 local Ghostline = {}
 Ghostline.__index = Ghostline
-Ghostline.Version = "2.0.0"
+Ghostline.Version = "2.1.0"
 Ghostline.Flags = {}
 Ghostline.Windows = {}
 Ghostline.ConfigFolder = "Ghostline"
+Ghostline.AnimSpeed = 1
 
 Ghostline.Theme = {
 	BackgroundPrimary = Color3.fromRGB(14, 6, 8),
@@ -44,13 +48,17 @@ local EASE = Enum.EasingStyle
 local DIR = Enum.EasingDirection
 local WHITE = Color3.new(1, 1, 1)
 local BLACK = Color3.new(0, 0, 0)
+local IS_TOUCH = UserInputService.TouchEnabled
+local function TH(h)
+	return IS_TOUCH and (h + 6) or h
+end
 
 ----------------------------------------------------------------------
 -- UTILITAIRES
 ----------------------------------------------------------------------
 
 local function Tween(obj, time, props, style, dir)
-	local t = TweenService:Create(obj, TweenInfo.new(time or 0.3, style or EASE.Quart, dir or DIR.Out), props)
+	local t = TweenService:Create(obj, TweenInfo.new((time or 0.3) / (Ghostline.AnimSpeed or 1), style or EASE.Quart, dir or DIR.Out), props)
 	t:Play()
 	return t
 end
@@ -167,6 +175,7 @@ end
 
 local function MakeDrag(Window, hit, onMove, onEnd, onStart)
 	local dragging = false
+	local locked
 	local function isPointer(input)
 		return input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
@@ -174,6 +183,11 @@ local function MakeDrag(Window, hit, onMove, onEnd, onStart)
 	Window._track(hit.InputBegan, function(input)
 		if isPointer(input) then
 			dragging = true
+			-- évite que le ScrollingFrame parent défile pendant le glissement (tactile)
+			locked = hit:FindFirstAncestorWhichIsA("ScrollingFrame")
+			if locked then
+				locked.ScrollingEnabled = false
+			end
 			if onStart then
 				onStart(input.Position)
 			end
@@ -194,6 +208,10 @@ local function MakeDrag(Window, hit, onMove, onEnd, onStart)
 	Window._track(UserInputService.InputEnded, function(input)
 		if dragging and isPointer(input) then
 			dragging = false
+			if locked then
+				locked.ScrollingEnabled = true
+				locked = nil
+			end
 			if onEnd then
 				onEnd()
 			end
@@ -255,6 +273,68 @@ New("UIListLayout", {
 	Padding = UDim.new(0, 10),
 	Parent = NotifHolder,
 })
+
+-- Tooltips (bureau uniquement) ---------------------------------------------
+local Tooltip = New("TextLabel", {
+	BackgroundColor3 = Theme.BackgroundPrimary,
+	BackgroundTransparency = 1,
+	TextTransparency = 1,
+	Font = Enum.Font.Gotham,
+	TextSize = 12,
+	TextColor3 = Theme.Text,
+	TextWrapped = true,
+	AutomaticSize = Enum.AutomaticSize.XY,
+	Size = UDim2.fromOffset(0, 0),
+	Visible = false,
+	ZIndex = 200,
+	BorderSizePixel = 0,
+	Text = "",
+	Parent = ScreenGui,
+})
+Corner(Tooltip, 8)
+local tipStroke = Stroke(Tooltip, Theme.AccentGlow, 1, 1)
+New("UIPadding", {
+	PaddingLeft = UDim.new(0, 8),
+	PaddingRight = UDim.new(0, 8),
+	PaddingTop = UDim.new(0, 5),
+	PaddingBottom = UDim.new(0, 5),
+	Parent = Tooltip,
+})
+New("UISizeConstraint", { MaxSize = Vector2.new(260, 400), Parent = Tooltip })
+local tipConn, tipToken = nil, 0
+
+function Ghostline:ShowTooltip(text)
+	tipToken += 1
+	Tooltip.Text = text
+	Tooltip.Visible = true
+	Tween(Tooltip, 0.2, { BackgroundTransparency = 0.05, TextTransparency = 0 })
+	Tween(tipStroke, 0.2, { Transparency = 0.3 })
+	if tipConn then
+		tipConn:Disconnect()
+	end
+	tipConn = RunService.RenderStepped:Connect(function()
+		local m = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+		local a = ScreenGui.AbsoluteSize
+		local sz = Tooltip.AbsoluteSize
+		Tooltip.Position = UDim2.fromOffset(math.min(m.X + 14, a.X - sz.X - 6), math.min(m.Y + 18, a.Y - sz.Y - 6))
+	end)
+end
+
+function Ghostline:HideTooltip()
+	tipToken += 1
+	local token = tipToken
+	Tween(Tooltip, 0.15, { BackgroundTransparency = 1, TextTransparency = 1 })
+	Tween(tipStroke, 0.15, { Transparency = 1 })
+	task.delay(0.17, function()
+		if token == tipToken then
+			Tooltip.Visible = false
+			if tipConn then
+				tipConn:Disconnect()
+				tipConn = nil
+			end
+		end
+	end)
+end
 
 function Ghostline:Notify(cfg)
 	cfg = cfg or {}
@@ -421,10 +501,53 @@ function Ghostline:LoadConfig(name)
 	for flag, value in pairs(data) do
 		local obj = Ghostline.Flags[flag]
 		if obj and obj.Set then
+			Ghostline._loading = true
 			pcall(obj.Set, obj, decode(obj, value))
+			Ghostline._loading = false
 		end
 	end
 	return true
+end
+
+----------------------------------------------------------------------
+-- AUTOSAVE / LISTE DES CONFIGS
+----------------------------------------------------------------------
+
+function Ghostline:EnableAutoSave(name, delay)
+	Ghostline._auto = { Name = name or "autosave", Delay = delay or 2, Token = 0 }
+end
+
+function Ghostline:_markDirty()
+	local a = Ghostline._auto
+	if not a or Ghostline._loading then
+		return
+	end
+	a.Token += 1
+	local token = a.Token
+	task.delay(a.Delay, function()
+		if Ghostline._auto == a and a.Token == token then
+			Ghostline:SaveConfig(a.Name)
+		end
+	end)
+end
+
+function Ghostline:ListConfigs()
+	local list = {}
+	if type(listfiles) ~= "function" then
+		return list
+	end
+	local ok, files = pcall(listfiles, Ghostline.ConfigFolder)
+	if not ok or type(files) ~= "table" then
+		return list
+	end
+	for _, f in ipairs(files) do
+		local n = tostring(f):match("([^/\\]+)%.json$")
+		if n then
+			table.insert(list, n)
+		end
+	end
+	table.sort(list)
+	return list
 end
 
 ----------------------------------------------------------------------
@@ -464,11 +587,21 @@ local function BuildElements(Target, Container, Tab, Window)
 			Tween(stroke, 0.25, { Color = Theme.Border, Transparency = 0.5 })
 			Tween(row, 0.25, { BackgroundTransparency = 0.4 })
 		end)
-		table.insert(Tab._elements, { Frame = row, Name = string.lower(name or "") })
+		table.insert(Tab._elements, { Frame = row, Name = string.lower(name or ""), Label = name or "", Stroke = stroke, Tab = Tab })
 		return row, stroke
 	end
 
 	local function Finish(cfg, obj)
+		local row = obj.Instance
+		if cfg.Flag and obj.Set then
+			local raw = obj.Set
+			obj.Set = function(self, v, silent)
+				raw(self, v, silent)
+				if not silent then
+					Ghostline:_markDirty()
+				end
+			end
+		end
 		if cfg.Flag then
 			Ghostline.Flags[cfg.Flag] = obj
 		end
@@ -476,6 +609,65 @@ local function BuildElements(Target, Container, Tab, Window)
 			if obj.Instance then
 				obj.Instance:Destroy()
 			end
+		end
+
+		-- tooltip (survol)
+		if row and cfg.Tooltip and not IS_TOUCH then
+			row.MouseEnter:Connect(function()
+				Ghostline:ShowTooltip(cfg.Tooltip)
+			end)
+			row.MouseLeave:Connect(function()
+				Ghostline:HideTooltip()
+			end)
+		end
+
+		-- remise à zéro : clic droit / appui long / double-clic (slider)
+		if row and obj.Set and obj.Kind and obj.Kind ~= "Progress" then
+			local default = obj.Value
+			if type(default) == "table" then
+				default = table.clone(default)
+			end
+			local function doReset()
+				local v = default
+				if type(v) == "table" then
+					v = table.clone(v)
+				end
+				obj:Set(v)
+				local st = row:FindFirstChildOfClass("UIStroke")
+				if st then
+					Tween(st, 0.15, { Color = Theme.AccentSoft, Transparency = 0, Thickness = 2.5 })
+					task.delay(0.35, function()
+						Tween(st, 0.4, { Color = Theme.Border, Transparency = 0.5, Thickness = 1 })
+					end)
+				end
+			end
+			local lastTap = 0
+			row.InputBegan:Connect(function(input)
+				local t = input.UserInputType
+				if t == Enum.UserInputType.MouseButton2 then
+					doReset()
+				elseif obj.Kind == "Slider" then
+					if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
+						if os.clock() - lastTap < 0.35 then
+							lastTap = 0
+							doReset()
+						else
+							lastTap = os.clock()
+						end
+					end
+				elseif t == Enum.UserInputType.Touch then
+					local start = input.Position
+					task.delay(0.7, function()
+						if
+							input.UserInputState ~= Enum.UserInputState.End
+							and input.UserInputState ~= Enum.UserInputState.Cancel
+							and (input.Position - start).Magnitude < 10
+						then
+							doReset()
+						end
+					end)
+				end
+			end)
 		end
 		return obj
 	end
@@ -552,7 +744,7 @@ local function BuildElements(Target, Container, Tab, Window)
 	-- BUTTON ---------------------------------------------------------
 	function Target:MakeButton(cfg)
 		local name = cfg.Name or "Button"
-		local row = Row(38, name, "TextButton")
+		local row = Row(TH(38), name, "TextButton")
 		local fill = New("Frame", {
 			Size = UDim2.new(1, 0, 1, 0),
 			BackgroundColor3 = WHITE,
@@ -598,7 +790,7 @@ local function BuildElements(Target, Container, Tab, Window)
 	-- TOGGLE ---------------------------------------------------------
 	function Target:MakeToggle(cfg)
 		local name = cfg.Name or "Toggle"
-		local row = Row(38, name, "TextButton")
+		local row = Row(TH(38), name, "TextButton")
 		TextLabel({ Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
 		local track = New("Frame", {
 			Size = UDim2.new(0, 44, 0, 22),
@@ -650,7 +842,7 @@ local function BuildElements(Target, Container, Tab, Window)
 	-- CHECKBOX (case à cocher) --------------------------------------
 	function Target:MakeCheckbox(cfg)
 		local name = cfg.Name or "Checkbox"
-		local row = Row(38, name, "TextButton")
+		local row = Row(TH(38), name, "TextButton")
 		TextLabel({ Size = UDim2.new(1, -60, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
 		local box = New("Frame", {
 			Size = UDim2.new(0, 22, 0, 22),
@@ -738,8 +930,8 @@ local function BuildElements(Target, Container, Tab, Window)
 		Corner(knob, 9)
 		Stroke(knob, Theme.AccentGlow, 2, 0)
 		local hit = New("TextButton", {
-			Size = UDim2.new(1, -16, 0, 26),
-			Position = UDim2.new(0, 8, 0, 26),
+			Size = UDim2.new(1, -16, 0, IS_TOUCH and 38 or 26),
+			Position = UDim2.new(0, 8, 0, IS_TOUCH and 16 or 26),
 			BackgroundTransparency = 1,
 			Text = "",
 			Parent = row,
@@ -828,7 +1020,7 @@ local function BuildElements(Target, Container, Tab, Window)
 	-- TEXTBOX --------------------------------------------------------
 	function Target:MakeTextbox(cfg)
 		local name = cfg.Name or "Textbox"
-		local row = Row(38, name)
+		local row = Row(TH(38), name)
 		TextLabel({ Size = UDim2.new(0.5, 0, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
 		local box = New("TextBox", {
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -1040,7 +1232,7 @@ local function BuildElements(Target, Container, Tab, Window)
 	function Target:MakeKeybind(cfg)
 		local name = cfg.Name or "Keybind"
 		local mode = cfg.Mode or "Press" -- "Press" | "Hold"
-		local row = Row(38, name)
+		local row = Row(TH(38), name)
 		TextLabel({ Size = UDim2.new(0.6, 0, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
 		local bind = New("TextButton", {
 			Size = UDim2.new(0, 90, 0, 26),
@@ -1346,14 +1538,74 @@ end
 -- FENÊTRE
 ----------------------------------------------------------------------
 
+local GOLD1 = Color3.fromRGB(255, 214, 102)
+local GOLD2 = Color3.fromRGB(255, 150, 40)
+
+local function To(obj, animated, time, props, style, dir)
+	if animated then
+		return Tween(obj, time, props, style, dir)
+	end
+	for k, v in pairs(props) do
+		obj[k] = v
+	end
+end
+
+local function toSeq(stops)
+	local keys = {}
+	for _, s in ipairs(stops) do
+		table.insert(keys, ColorSequenceKeypoint.new(s[1], s[2]))
+	end
+	return ColorSequence.new(keys)
+end
+
+local function fuzzyScore(q, s)
+	if q == "" then
+		return 1
+	end
+	local i = string.find(s, q, 1, true)
+	if i then
+		return 1000 - i
+	end
+	local qi, last, score = 1, 0, 0
+	for si = 1, #s do
+		if string.sub(s, si, si) == string.sub(q, qi, qi) then
+			score += 10 - math.min(9, si - last - 1)
+			last = si
+			qi += 1
+			if qi > #q then
+				return score
+			end
+		end
+	end
+	return nil
+end
+
+local function formatTime(sec)
+	sec = math.floor(sec)
+	return string.format("%02d:%02d:%02d", sec // 3600, (sec % 3600) // 60, sec % 60)
+end
+
 function Ghostline.new(cfg)
 	cfg = cfg or {}
-	local Window = { Tabs = {}, CurrentTab = nil, Visible = true, Minimized = false, Binding = false, _conns = {} }
+	local player = Players.LocalPlayer
+	local Window = {
+		Tabs = {},
+		CurrentTab = nil,
+		Visible = true,
+		Minimized = false,
+		Binding = false,
+		Compact = false,
+		CompactMode = cfg.Compact, -- nil = automatique
+		UserScale = 1,
+		ToggleKey = cfg.ToggleKey or Enum.KeyCode.RightShift,
+		DesiredSize = cfg.Size or Vector2.new(640, 430),
+		Destroyed = false,
+		_conns = {},
+	}
 	local title = cfg.Name or "Ghostline OS"
 	local subtitle = cfg.Subtitle
-	local size = cfg.Size or Vector2.new(640, 430)
-	local toggleKey = cfg.ToggleKey or Enum.KeyCode.RightShift
 	local HEADER = 48
+	local startClock = os.clock()
 
 	function Window._track(signal, fn)
 		local c = signal:Connect(fn)
@@ -1362,11 +1614,62 @@ function Ghostline.new(cfg)
 	end
 	local track = Window._track
 
-	-- Racine (déplaçable / redimensionnable) -------------------------
+	-- Profil ------------------------------------------------------------
+	local pc = cfg.Profile or {}
+	local Profile = {
+		Avatar = pc.ShowAvatar ~= false,
+		Name = pc.ShowName ~= false,
+		Streamer = pc.Streamer or false,
+		Premium = pc.Premium or false, -- statut premium DU SCRIPT (licence)
+		PremiumLabel = pc.PremiumLabel or "PREMIUM",
+		FreeLabel = pc.FreeLabel or "FREE",
+		DisplayName = pc.DisplayName or (player and player.DisplayName) or "Invité",
+		Username = pc.Username or (player and player.Name) or "guest",
+		UserId = (player and player.UserId) or 0,
+		Image = pc.Image,
+	}
+	Window.Profile = Profile
+	local avatarLoaded = false
+	local grads = {}
+	local painters = {}
+	local refreshProfile, refreshPanel, applySidebar
+
+	local function ringStops()
+		if Profile.Premium then
+			return { { 0, GOLD1 }, { 0.5, GOLD2 }, { 1, GOLD1 } }
+		end
+		return { { 0, Theme.AccentDeep }, { 0.5, Theme.AccentGlow }, { 1, Theme.AccentDeep } }
+	end
+	local function paintGradients()
+		for _, g in ipairs(grads) do
+			g.Color = toSeq(ringStops())
+		end
+	end
+	local function shownName()
+		if Profile.Streamer then
+			return "••••••"
+		end
+		return Profile.DisplayName
+	end
+
+	-- Flou d'arrière-plan (vrai verre) ---------------------------------
+	local Blur
+	pcall(function()
+		Blur = Lighting:FindFirstChild("GhostlineBlur") or New("BlurEffect", { Name = "GhostlineBlur", Size = 0, Parent = Lighting })
+	end)
+	Window.BlurOn = cfg.Blur ~= false and Blur ~= nil
+	local function applyBlur()
+		if Blur and Blur.Parent then
+			local on = Window.BlurOn and Window.Visible and not Window.Destroyed
+			Tween(Blur, 0.5, { Size = on and (cfg.BlurSize or 14) or 0 })
+		end
+	end
+
+	-- Racine -------------------------------------------------------------
 	local Root = New("Frame", {
 		Name = "Window",
-		Size = UDim2.fromOffset(size.X, size.Y),
-		Position = UDim2.new(0.5, -size.X / 2, 0.5, -size.Y / 2),
+		Size = UDim2.fromOffset(640, 430),
+		Position = UDim2.new(0.5, -320, 0.5, -215),
 		BackgroundTransparency = 1,
 		Parent = ScreenGui,
 	})
@@ -1407,7 +1710,6 @@ function Ghostline.new(cfg)
 		{ 1, Theme.GlassTint },
 	}, 135)
 
-	-- bordure rouge animée (dégradé qui tourne)
 	local MainStroke = Stroke(Main, WHITE, 1.6, 0.05)
 	local strokeGrad = Gradient(MainStroke, {
 		{ 0, Theme.AccentDeep },
@@ -1418,7 +1720,6 @@ function Ghostline.new(cfg)
 	}, 0)
 	TweenService:Create(strokeGrad, TweenInfo.new(6, EASE.Linear, DIR.Out, -1), { Rotation = 360 }):Play()
 
-	-- orbes "liquides" flottants derrière le verre
 	local orbs = {
 		{ size = 240, color = Theme.AccentGlow, from = UDim2.new(0, -60, 0, -40), to = UDim2.new(0, 60, 0, 70), t = 7, tr = 0.86 },
 		{ size = 200, color = Theme.AccentDeep, from = UDim2.new(1, -170, 1, -150), to = UDim2.new(1, -280, 1, -220), t = 9, tr = 0.78 },
@@ -1437,7 +1738,6 @@ function Ghostline.new(cfg)
 		TweenService:Create(orb, TweenInfo.new(o.t, EASE.Sine, DIR.InOut, -1, true), { Position = o.to }):Play()
 	end
 
-	-- reflets de verre
 	local sheen = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 70),
 		BackgroundColor3 = WHITE,
@@ -1455,36 +1755,39 @@ function Ghostline.new(cfg)
 		Parent = Main,
 	})
 
-	-- En-tête ---------------------------------------------------------
+	-- En-tête -------------------------------------------------------------
 	local Header = New("Frame", {
 		Size = UDim2.new(1, 0, 0, HEADER),
 		BackgroundTransparency = 1,
 		Parent = Main,
 	})
 	local titleLbl = TextLabel({
-		Size = UDim2.new(0, 300, 0, subtitle and 22 or HEADER),
+		Size = UDim2.new(1, -250, 0, subtitle and 22 or HEADER),
 		Position = UDim2.new(0, 18, 0, subtitle and 6 or 0),
 		Text = title,
 		Font = Enum.Font.GothamBold,
 		TextSize = 16,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = Header,
 	})
 	Gradient(titleLbl, { { 0, Theme.Text }, { 1, Theme.AccentSoft } }, 0)
+	local subLbl
 	if subtitle then
-		TextLabel({
-			Size = UDim2.new(0, 300, 0, 14),
+		subLbl = TextLabel({
+			Size = UDim2.new(1, -250, 0, 14),
 			Position = UDim2.new(0, 18, 0, 26),
 			Text = subtitle,
 			Font = Enum.Font.Gotham,
 			TextSize = 11,
 			TextColor3 = Theme.SubText,
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			Parent = Header,
 		})
 	end
 
 	local function HeaderButton(text, offsetX, hoverColor)
 		local b = New("TextButton", {
-			Size = UDim2.new(0, 28, 0, 28),
+			Size = UDim2.new(0, IS_TOUCH and 34 or 28, 0, IS_TOUCH and 34 or 28),
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, offsetX, 0.5, 0),
 			BackgroundColor3 = hoverColor,
@@ -1506,22 +1809,26 @@ function Ghostline.new(cfg)
 		end)
 		return b
 	end
-	local CloseBtn = HeaderButton("×", -10, Theme.Error)
-	local MinBtn = HeaderButton("—", -44, Theme.AccentDeep)
+	local CloseBtn = HeaderButton("×", -8, Theme.Error)
+	local MinBtn = HeaderButton("—", IS_TOUCH and -46 or -40, Theme.AccentDeep)
 
+	local function baseSearchW()
+		return Window.Compact and 118 or 150
+	end
 	local Search = New("TextBox", {
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -82, 0.5, 0),
-		Size = UDim2.new(0, 150, 0, 26),
+		Position = UDim2.new(1, IS_TOUCH and -88 or -76, 0.5, 0),
+		Size = UDim2.new(0, 150, 0, 28),
 		BackgroundColor3 = Theme.BackgroundPrimary,
 		BackgroundTransparency = 0.3,
-		PlaceholderText = "Rechercher...",
+		PlaceholderText = "🔍 Rechercher...",
 		PlaceholderColor3 = Theme.SubText,
 		Text = "",
 		TextColor3 = Theme.Text,
 		Font = Enum.Font.Gotham,
 		TextSize = 12,
 		ClearTextOnFocus = false,
+		ClipsDescendants = true,
 		BorderSizePixel = 0,
 		Parent = Header,
 	})
@@ -1529,14 +1836,13 @@ function Ghostline.new(cfg)
 	local searchStroke = Stroke(Search, Theme.Border, 1, 0.4)
 	Search.Focused:Connect(function()
 		Tween(searchStroke, 0.25, { Color = Theme.AccentGlow, Transparency = 0 })
-		Tween(Search, 0.35, { Size = UDim2.new(0, 190, 0, 26) }, EASE.Quart)
+		Tween(Search, 0.35, { Size = UDim2.new(0, math.min(240, Root.Size.X.Offset - 110), 0, 28) }, EASE.Quart)
 	end)
 	Search.FocusLost:Connect(function()
 		Tween(searchStroke, 0.25, { Color = Theme.Border, Transparency = 0.4 })
-		Tween(Search, 0.35, { Size = UDim2.new(0, 150, 0, 26) }, EASE.Quart)
+		Tween(Search, 0.35, { Size = UDim2.new(0, baseSearchW(), 0, 28) }, EASE.Quart)
 	end)
 
-	-- barre d'accent animée
 	local AccentBar = New("Frame", {
 		Size = UDim2.new(1, 0, 0, 2),
 		Position = UDim2.new(0, 0, 0, HEADER),
@@ -1554,7 +1860,7 @@ function Ghostline.new(cfg)
 	barGrad.Offset = Vector2.new(-0.5, 0)
 	TweenService:Create(barGrad, TweenInfo.new(2.5, EASE.Sine, DIR.InOut, -1, true), { Offset = Vector2.new(0.5, 0) }):Play()
 
-	-- Corps ------------------------------------------------------------
+	-- Corps ---------------------------------------------------------------
 	local Body = New("Frame", {
 		Position = UDim2.new(0, 0, 0, HEADER + 2),
 		Size = UDim2.new(1, 0, 1, -(HEADER + 2)),
@@ -1567,6 +1873,7 @@ function Ghostline.new(cfg)
 		BackgroundColor3 = Theme.BackgroundSecondary,
 		BackgroundTransparency = 0.5,
 		BorderSizePixel = 0,
+		ClipsDescendants = true,
 		Parent = Body,
 	})
 	Corner(Sidebar, 14)
@@ -1574,7 +1881,7 @@ function Ghostline.new(cfg)
 
 	local TabList = New("ScrollingFrame", {
 		Position = UDim2.new(0, 0, 0, 8),
-		Size = UDim2.new(1, 0, 1, -40),
+		Size = UDim2.new(1, 0, 1, -74),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 0,
@@ -1601,17 +1908,6 @@ function Ghostline.new(cfg)
 	Corner(Indicator, 2)
 	Gradient(Indicator, { { 0, Theme.AccentSoft }, { 1, Theme.AccentGlow } }, 90)
 
-	TextLabel({
-		Position = UDim2.new(0, 0, 1, -28),
-		Size = UDim2.new(1, 0, 0, 20),
-		Text = "Ghostline v" .. Ghostline.Version,
-		Font = Enum.Font.Gotham,
-		TextSize = 10,
-		TextColor3 = Theme.SubText,
-		TextXAlignment = Enum.TextXAlignment.Center,
-		Parent = Sidebar,
-	})
-
 	local ContentArea = New("Frame", {
 		Position = UDim2.new(0, 160, 0, 0),
 		Size = UDim2.new(1, -160, 1, 0),
@@ -1619,10 +1915,681 @@ function Ghostline.new(cfg)
 		Parent = Body,
 	})
 
-	-- poignée de redimensionnement
+	-- Avatar (anneau animé) -------------------------------------------------
+	local function BuildAvatar(parent, px, thickness)
+		local holder = New("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = UDim2.fromOffset(px, px),
+			BackgroundColor3 = Theme.BackgroundPrimary,
+			BorderSizePixel = 0,
+			Parent = parent,
+		})
+		Corner(holder, 999)
+		local ring = Stroke(holder, WHITE, thickness, 0)
+		local grad = Gradient(ring, ringStops(), 0)
+		table.insert(grads, grad)
+		TweenService:Create(grad, TweenInfo.new(4, EASE.Linear, DIR.Out, -1), { Rotation = 360 }):Play()
+		local img = New("ImageLabel", {
+			Position = UDim2.new(0, 3, 0, 3),
+			Size = UDim2.new(1, -6, 1, -6),
+			BackgroundTransparency = 1,
+			ImageTransparency = 1,
+			ScaleType = Enum.ScaleType.Crop,
+			Parent = holder,
+		})
+		Corner(img, 999)
+		return holder, ring, img
+	end
+
+	-- Carte de profil (bas gauche) ------------------------------------------
+	local ProfileCard = New("TextButton", {
+		Position = UDim2.new(0, 6, 1, -58),
+		Size = UDim2.new(1, -12, 0, 52),
+		BackgroundColor3 = WHITE,
+		BackgroundTransparency = 0.35,
+		Text = "",
+		AutoButtonColor = false,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Parent = Sidebar,
+	})
+	Corner(ProfileCard, 12)
+	Gradient(ProfileCard, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundSecondary } }, 25)
+	local cardStroke = Stroke(ProfileCard, Theme.Border, 1, 0.45)
+	ProfileCard.MouseEnter:Connect(function()
+		Tween(cardStroke, 0.25, { Color = Theme.AccentGlow, Transparency = 0.1 })
+		Tween(ProfileCard, 0.25, { BackgroundTransparency = 0.2 })
+	end)
+	ProfileCard.MouseLeave:Connect(function()
+		Tween(cardStroke, 0.25, { Color = Theme.Border, Transparency = 0.45 })
+		Tween(ProfileCard, 0.25, { BackgroundTransparency = 0.35 })
+	end)
+	ProfileCard.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			Ripple(ProfileCard, input.Position.X, input.Position.Y)
+		end
+	end)
+
+	local cardHolder, cardRing, cardImg = BuildAvatar(ProfileCard, 36, 2)
+	cardHolder.Position = UDim2.new(0, 26, 0.5, 0)
+	local cardName = TextLabel({
+		Size = UDim2.new(1, -58, 0, 16),
+		Position = UDim2.new(0, 52, 0, 9),
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Parent = ProfileCard,
+	})
+	local cardStatus = TextLabel({
+		Size = UDim2.new(1, -58, 0, 14),
+		Position = UDim2.new(0, 52, 0, 27),
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		TextColor3 = WHITE,
+		Parent = ProfileCard,
+	})
+	local statusGrad = Gradient(cardStatus, { { 0, Theme.SubText }, { 1, Theme.SubText } }, 0)
+	local hiddenLbl = TextLabel({
+		Size = UDim2.new(1, 0, 1, 0),
+		Text = "Profil masqué",
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		TextColor3 = Theme.SubText,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextTransparency = 1,
+		Parent = ProfileCard,
+	})
+
+	-- Panneau de profil agrandi ---------------------------------------------
+	local Dim = New("TextButton", {
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = BLACK,
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		Visible = false,
+		ZIndex = 20,
+		BorderSizePixel = 0,
+		Parent = Main,
+	})
+	local Panel = New("Frame", {
+		Size = UDim2.fromOffset(100, 50),
+		BackgroundColor3 = WHITE,
+		BackgroundTransparency = 0.03,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Visible = false,
+		ZIndex = 21,
+		Parent = Main,
+	})
+	Corner(Panel, 18)
+	Gradient(Panel, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundPrimary } }, 135)
+	local panelStroke = Stroke(Panel, WHITE, 1.6, 0.05)
+	local panelGrad = Gradient(panelStroke, ringStops(), 0)
+	table.insert(grads, panelGrad)
+	TweenService:Create(panelGrad, TweenInfo.new(4, EASE.Linear, DIR.Out, -1), { Rotation = 360 }):Play()
+
+	local PScroll = New("ScrollingFrame", {
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Theme.AccentGlow,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		Parent = Panel,
+	})
+	New("UIListLayout", {
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		Parent = PScroll,
+	})
+	New("UIPadding", { PaddingTop = UDim.new(0, 18), PaddingBottom = UDim.new(0, 16), Parent = PScroll })
+
+	local PanelClose = New("TextButton", {
+		Size = UDim2.new(0, 30, 0, 30),
+		Position = UDim2.new(1, -38, 0, 8),
+		BackgroundColor3 = Theme.AccentDeep,
+		BackgroundTransparency = 1,
+		Text = "×",
+		TextColor3 = Theme.SubText,
+		Font = Enum.Font.GothamBold,
+		TextSize = 18,
+		AutoButtonColor = false,
+		BorderSizePixel = 0,
+		Parent = Panel,
+	})
+	Corner(PanelClose, 9)
+	PanelClose.MouseEnter:Connect(function()
+		Tween(PanelClose, 0.2, { BackgroundTransparency = 0.4, TextColor3 = Theme.Text })
+	end)
+	PanelClose.MouseLeave:Connect(function()
+		Tween(PanelClose, 0.2, { BackgroundTransparency = 1, TextColor3 = Theme.SubText })
+	end)
+
+	local avatarWrap = New("Frame", {
+		Size = UDim2.new(0, 112, 0, 112),
+		BackgroundTransparency = 1,
+		LayoutOrder = 1,
+		Parent = PScroll,
+	})
+	local panelHolder, panelRing, panelImg = BuildAvatar(avatarWrap, 100, 3)
+	panelHolder.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+	local panelName = TextLabel({
+		Size = UDim2.new(1, -32, 0, 24),
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 18,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		LayoutOrder = 2,
+		Parent = PScroll,
+	})
+	local panelUser = TextLabel({
+		Size = UDim2.new(1, -32, 0, 16),
+		Text = "",
+		Font = Enum.Font.Gotham,
+		TextSize = 12,
+		TextColor3 = Theme.SubText,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		LayoutOrder = 3,
+		Parent = PScroll,
+	})
+	local badge = New("Frame", {
+		Size = UDim2.new(0, 130, 0, 26),
+		BackgroundColor3 = WHITE,
+		BorderSizePixel = 0,
+		LayoutOrder = 4,
+		Parent = PScroll,
+	})
+	Corner(badge, 13)
+	local badgeGrad = Gradient(badge, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundSecondary } }, 0)
+	local badgeStroke = Stroke(badge, Theme.Border, 1, 0.3)
+	local badgeText = TextLabel({
+		Size = UDim2.new(1, 0, 1, 0),
+		Text = "",
+		Font = Enum.Font.GothamBold,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		Parent = badge,
+	})
+
+	local function InfoRow(order, label, value)
+		local r = New("Frame", {
+			Size = UDim2.new(1, -32, 0, 28),
+			BackgroundColor3 = Theme.BackgroundPrimary,
+			BackgroundTransparency = 0.45,
+			BorderSizePixel = 0,
+			LayoutOrder = order,
+			Parent = PScroll,
+		})
+		Corner(r, 8)
+		TextLabel({
+			Size = UDim2.new(0.5, 0, 1, 0),
+			Position = UDim2.new(0, 10, 0, 0),
+			Text = label,
+			TextSize = 12,
+			TextColor3 = Theme.SubText,
+			Parent = r,
+		})
+		return TextLabel({
+			Size = UDim2.new(0.5, -20, 1, 0),
+			Position = UDim2.new(0.5, 10, 0, 0),
+			Text = value,
+			TextSize = 12,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = r,
+		})
+	end
+	local robloxPremium = false
+	local accountAge = 0
+	pcall(function()
+		robloxPremium = player.MembershipType == Enum.MembershipType.Premium
+		accountAge = player.AccountAge
+	end)
+	InfoRow(5, "ID utilisateur", tostring(Profile.UserId))
+	InfoRow(6, "Roblox Premium", robloxPremium and "Oui" or "Non")
+	InfoRow(7, "Âge du compte", accountAge .. " jours")
+	local sessVal = InfoRow(8, "Session", "00:00:00")
+	local netVal = InfoRow(9, "Performance", "-- fps · -- ms")
+
+	TextLabel({
+		Size = UDim2.new(1, -32, 0, 18),
+		Text = "CONFIDENTIALITÉ",
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		TextColor3 = Theme.AccentSoft,
+		LayoutOrder = 10,
+		Parent = PScroll,
+	})
+
+	local function MiniSwitch(order, text, get, set)
+		local row = New("TextButton", {
+			Size = UDim2.new(1, -32, 0, IS_TOUCH and 40 or 34),
+			BackgroundColor3 = WHITE,
+			BackgroundTransparency = 0.4,
+			Text = "",
+			AutoButtonColor = false,
+			BorderSizePixel = 0,
+			LayoutOrder = order,
+			Parent = PScroll,
+		})
+		Corner(row, 10)
+		Gradient(row, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundSecondary } }, 25)
+		local st = Stroke(row, Theme.Border, 1, 0.5)
+		row.MouseEnter:Connect(function()
+			Tween(st, 0.25, { Color = Theme.AccentGlow, Transparency = 0.15 })
+		end)
+		row.MouseLeave:Connect(function()
+			Tween(st, 0.25, { Color = Theme.Border, Transparency = 0.5 })
+		end)
+		TextLabel({ Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = text, Parent = row })
+		local sw = New("Frame", {
+			Size = UDim2.new(0, 44, 0, 22),
+			Position = UDim2.new(1, -56, 0.5, -11),
+			BackgroundColor3 = Theme.BackgroundPrimary,
+			BorderSizePixel = 0,
+			ClipsDescendants = true,
+			Parent = row,
+		})
+		Corner(sw, 11)
+		Stroke(sw, Theme.Border, 1, 0.3)
+		local onFill = New("Frame", {
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundColor3 = WHITE,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Parent = sw,
+		})
+		Gradient(onFill, { { 0, Theme.AccentDeep }, { 1, Theme.AccentGlow } }, 0)
+		local knob = New("Frame", {
+			Size = UDim2.new(0, 16, 0, 16),
+			Position = UDim2.new(0, 3, 0.5, -8),
+			BackgroundColor3 = Theme.Text,
+			BorderSizePixel = 0,
+			Parent = sw,
+		})
+		Corner(knob, 8)
+		local function paint(animated)
+			local v = get()
+			To(onFill, animated, 0.3, { BackgroundTransparency = v and 0 or 1 })
+			To(knob, animated, 0.4, { Position = v and UDim2.new(0, 25, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }, EASE.Back)
+		end
+		row.MouseButton1Click:Connect(function()
+			set(not get())
+		end)
+		table.insert(painters, paint)
+		paint(false)
+	end
+	MiniSwitch(11, "Afficher l'avatar", function()
+		return Profile.Avatar
+	end, function(v)
+		Window:SetProfileVisibility(v, nil)
+	end)
+	MiniSwitch(12, "Afficher le pseudo", function()
+		return Profile.Name
+	end, function(v)
+		Window:SetProfileVisibility(nil, v)
+	end)
+	MiniSwitch(13, "Mode streamer (masque le pseudo)", function()
+		return Profile.Streamer
+	end, function(v)
+		Window:SetStreamer(v)
+	end)
+	TextLabel({
+		Size = UDim2.new(1, -32, 0, 16),
+		Text = "Ghostline v" .. Ghostline.Version,
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		TextColor3 = Theme.SubText,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		LayoutOrder = 20,
+		Parent = PScroll,
+	})
+
+	function refreshPanel()
+		panelName.Text = shownName()
+		panelUser.Text = Profile.Streamer and "@••••••" or ("@" .. Profile.Username)
+		badgeText.Text = Profile.Premium and ("★  " .. Profile.PremiumLabel) or Profile.FreeLabel
+		if Profile.Premium then
+			badgeGrad.Color = toSeq({ { 0, GOLD1 }, { 1, GOLD2 } })
+			badgeText.TextColor3 = Color3.fromRGB(45, 22, 0)
+			badgeStroke.Color = GOLD1
+		else
+			badgeGrad.Color = toSeq({ { 0, Theme.GlassTint }, { 1, Theme.BackgroundSecondary } })
+			badgeText.TextColor3 = Theme.SubText
+			badgeStroke.Color = Theme.Border
+		end
+	end
+
+	function refreshProfile(animated)
+		local compact = Window.Compact
+		local showA = Profile.Avatar
+		local showN = Profile.Name and not compact
+		local textX = showA and 52 or 12
+		To(cardHolder, animated, 0.45, {
+			Size = showA and UDim2.fromOffset(36, 36) or UDim2.fromOffset(0, 0),
+			Position = UDim2.new(0, compact and 22 or 26, 0.5, 0),
+		}, EASE.Back)
+		To(cardRing, animated, 0.3, { Transparency = showA and 0 or 1 })
+		To(cardImg, animated, 0.4, { ImageTransparency = (showA and avatarLoaded) and 0 or 1 })
+		To(cardName, animated, 0.3, { TextTransparency = showN and 0 or 1, Position = UDim2.new(0, textX, 0, 9) })
+		To(cardStatus, animated, 0.3, { TextTransparency = showN and 0 or 1, Position = UDim2.new(0, textX, 0, 27) })
+		hiddenLbl.Text = compact and "..." or "Profil masqué"
+		To(hiddenLbl, animated, 0.3, { TextTransparency = ((not showA) and (not showN)) and 0 or 1 })
+		cardName.Text = shownName()
+		cardStatus.Text = Profile.Premium and Profile.PremiumLabel or Profile.FreeLabel
+		statusGrad.Color = toSeq(Profile.Premium and { { 0, GOLD1 }, { 1, GOLD2 } } or { { 0, Theme.SubText }, { 1, Theme.SubText } })
+		paintGradients()
+		refreshPanel()
+		for _, p in ipairs(painters) do
+			p(animated)
+		end
+		if Window._sync then
+			Window._sync()
+		end
+	end
+
+	local function setAvatarImage(img)
+		cardImg.Image = img
+		panelImg.Image = img
+		avatarLoaded = true
+		To(panelImg, true, 0.5, { ImageTransparency = 0 })
+		refreshProfile(true)
+	end
+	task.spawn(function()
+		if Profile.Image then
+			setAvatarImage(Profile.Image)
+			return
+		end
+		if not player then
+			return
+		end
+		local ok, img = pcall(function()
+			return (Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420))
+		end)
+		if ok and img and not Window.Destroyed then
+			setAvatarImage(img)
+		end
+	end)
+
+	-- ouverture / fermeture du panneau (animation depuis la carte) ---------
+	local panelOpen = false
+	local function cardRect()
+		local s = Scale.Scale
+		local ap = ProfileCard.AbsolutePosition - Main.AbsolutePosition
+		return UDim2.fromOffset(ap.X / s, ap.Y / s), UDim2.fromOffset(ProfileCard.AbsoluteSize.X / s, ProfileCard.AbsoluteSize.Y / s)
+	end
+
+	function Window:OpenProfile()
+		if panelOpen or Window.Minimized or Window.Destroyed then
+			return
+		end
+		panelOpen = true
+		local pos, sz = cardRect()
+		Panel.Position = pos
+		Panel.Size = sz
+		Panel.Visible = true
+		Dim.Visible = true
+		PScroll.CanvasPosition = Vector2.new(0, 0)
+		local s = Scale.Scale
+		local w = math.min(340, Main.AbsoluteSize.X / s - 24)
+		local h = math.min(420, Main.AbsoluteSize.Y / s - 24)
+		Tween(Dim, 0.35, { BackgroundTransparency = 0.5 })
+		Tween(Panel, 0.6, { Position = UDim2.new(0.5, -w / 2, 0.5, -h / 2), Size = UDim2.fromOffset(w, h) }, EASE.Exponential)
+
+		local frames = 0
+		local hb = RunService.Heartbeat:Connect(function()
+			frames += 1
+		end)
+		task.spawn(function()
+			while panelOpen and not Window.Destroyed do
+				sessVal.Text = formatTime(os.clock() - startClock)
+				local t0 = os.clock()
+				task.wait(0.5)
+				local fps = frames / math.max(os.clock() - t0, 0.001)
+				frames = 0
+				local ping = 0
+				pcall(function()
+					ping = math.floor(player:GetNetworkPing() * 2000)
+				end)
+				netVal.Text = string.format("%d fps · %d ms", math.floor(fps + 0.5), ping)
+			end
+			hb:Disconnect()
+		end)
+	end
+
+	function Window:CloseProfile()
+		if not panelOpen then
+			return
+		end
+		panelOpen = false
+		local pos, sz = cardRect()
+		Tween(Dim, 0.3, { BackgroundTransparency = 1 })
+		Tween(Panel, 0.45, { Position = pos, Size = sz }, EASE.Exponential, DIR.In)
+		task.delay(0.47, function()
+			if not panelOpen then
+				Panel.Visible = false
+				Dim.Visible = false
+			end
+		end)
+	end
+
+	ProfileCard.MouseButton1Click:Connect(function()
+		Window:OpenProfile()
+	end)
+	Dim.MouseButton1Click:Connect(function()
+		Window:CloseProfile()
+	end)
+	PanelClose.MouseButton1Click:Connect(function()
+		Window:CloseProfile()
+	end)
+
+	function Window:SetProfileVisibility(avatar, name)
+		if avatar ~= nil then
+			Profile.Avatar = avatar
+		end
+		if name ~= nil then
+			Profile.Name = name
+		end
+		refreshProfile(true)
+	end
+	function Window:SetStreamer(v)
+		Profile.Streamer = v and true or false
+		refreshProfile(true)
+	end
+	function Window:SetPremium(v, label)
+		Profile.Premium = v and true or false
+		if label then
+			if Profile.Premium then
+				Profile.PremiumLabel = label
+			else
+				Profile.FreeLabel = label
+			end
+		end
+		refreshProfile(true)
+	end
+	function Window:SetProfile(t)
+		for k, v in pairs(t or {}) do
+			Profile[k] = v
+		end
+		if t and t.Image then
+			setAvatarImage(t.Image)
+		else
+			refreshProfile(true)
+		end
+	end
+
+	-- Recherche globale (palette de commandes) -----------------------------
+	local Results = New("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, HEADER + 6),
+		Size = UDim2.new(0, 280, 0, 0),
+		BackgroundColor3 = WHITE,
+		BackgroundTransparency = 0.03,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Visible = false,
+		ZIndex = 10,
+		Parent = Main,
+	})
+	Corner(Results, 14)
+	Gradient(Results, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundPrimary } }, 135)
+	Stroke(Results, Theme.AccentGlow, 1.2, 0.3)
+	local ResultsList = New("ScrollingFrame", {
+		Position = UDim2.new(0, 6, 0, 6),
+		Size = UDim2.new(1, -12, 1, -12),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Theme.AccentGlow,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		Parent = Results,
+	})
+	New("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = ResultsList })
+	local resultsOpen = false
+	local function hideResults()
+		if not resultsOpen then
+			return
+		end
+		resultsOpen = false
+		Tween(Results, 0.25, { Size = UDim2.new(0, Results.Size.X.Offset, 0, 0) })
+		task.delay(0.27, function()
+			if not resultsOpen then
+				Results.Visible = false
+			end
+		end)
+	end
+
+	local function jumpTo(f)
+		Search:ReleaseFocus()
+		Search.Text = ""
+		hideResults()
+		Window:SelectTab(f.tab)
+		local e = f.entry
+		if e then
+			task.delay(0.5, function()
+				if Window.Destroyed or not e.Frame.Parent then
+					return
+				end
+				local c = f.tab._container
+				local y = (e.Frame.AbsolutePosition.Y - c.AbsolutePosition.Y) / Scale.Scale + c.CanvasPosition.Y
+				Tween(c, 0.5, { CanvasPosition = Vector2.new(0, math.max(0, y - 12)) }, EASE.Quart)
+				local st = e.Stroke
+				if st then
+					Tween(st, 0.2, { Color = WHITE, Transparency = 0, Thickness = 3 })
+					task.delay(0.9, function()
+						Tween(st, 0.5, { Color = Theme.Border, Transparency = 0.5, Thickness = 1 })
+					end)
+				end
+			end)
+		end
+	end
+
+	local function refreshResults()
+		local q = string.lower(Search.Text)
+		if q == "" then
+			hideResults()
+			return
+		end
+		local found = {}
+		for _, t in ipairs(Window.Tabs) do
+			local sc = fuzzyScore(q, string.lower(t.Name))
+			if sc then
+				table.insert(found, { score = sc + 5, label = t.Name, sub = "Onglet", tab = t })
+			end
+			for _, e in ipairs(t._elements) do
+				local s2 = fuzzyScore(q, e.Name)
+				if s2 then
+					table.insert(found, { score = s2, label = e.Label, sub = t.Name, tab = t, entry = e })
+				end
+			end
+		end
+		table.sort(found, function(a, b)
+			return a.score > b.score
+		end)
+		for _, c in ipairs(ResultsList:GetChildren()) do
+			if c:IsA("GuiObject") then
+				c:Destroy()
+			end
+		end
+		local count = math.min(#found, 12)
+		if count == 0 then
+			TextLabel({
+				Size = UDim2.new(1, 0, 0, 30),
+				Text = "Aucun résultat",
+				TextColor3 = Theme.SubText,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Parent = ResultsList,
+			})
+			count = 1
+		else
+			for i = 1, count do
+				local f = found[i]
+				local b = New("TextButton", {
+					Size = UDim2.new(1, -4, 0, 32),
+					BackgroundColor3 = Theme.AccentDeep,
+					BackgroundTransparency = 0.85,
+					Text = "",
+					AutoButtonColor = false,
+					BorderSizePixel = 0,
+					LayoutOrder = i,
+					Parent = ResultsList,
+				})
+				Corner(b, 8)
+				TextLabel({
+					Size = UDim2.new(0.62, -8, 1, 0),
+					Position = UDim2.new(0, 10, 0, 0),
+					Text = f.label,
+					TextSize = 12,
+					TextTruncate = Enum.TextTruncate.AtEnd,
+					Parent = b,
+				})
+				TextLabel({
+					Size = UDim2.new(0.38, -12, 1, 0),
+					Position = UDim2.new(0.62, 0, 0, 0),
+					Text = f.sub,
+					TextSize = 11,
+					TextColor3 = Theme.SubText,
+					TextXAlignment = Enum.TextXAlignment.Right,
+					TextTruncate = Enum.TextTruncate.AtEnd,
+					Parent = b,
+				})
+				b.MouseEnter:Connect(function()
+					Tween(b, 0.2, { BackgroundTransparency = 0.55 })
+				end)
+				b.MouseLeave:Connect(function()
+					Tween(b, 0.2, { BackgroundTransparency = 0.85 })
+				end)
+				b.Activated:Connect(function()
+					jumpTo(f)
+				end)
+			end
+		end
+		local h = math.min(count, 6) * 36 + 12
+		local w = math.min(300, Root.Size.X.Offset - 24)
+		Results.Visible = true
+		resultsOpen = true
+		Tween(Results, 0.35, { Size = UDim2.new(0, w, 0, h) }, EASE.Quart)
+	end
+	track(Search:GetPropertyChangedSignal("Text"), refreshResults)
+	Search.FocusLost:Connect(function()
+		task.delay(0.5, function()
+			if not Search:IsFocused() then
+				hideResults()
+			end
+		end)
+	end)
+
+	-- Poignée de redimensionnement ------------------------------------------
 	local Resize = New("TextButton", {
-		Size = UDim2.new(0, 20, 0, 20),
-		Position = UDim2.new(1, -22, 1, -22),
+		Size = UDim2.new(0, IS_TOUCH and 30 or 20, 0, IS_TOUCH and 30 or 20),
+		Position = UDim2.new(1, IS_TOUCH and -32 or -22, 1, IS_TOUCH and -32 or -22),
 		BackgroundTransparency = 1,
 		Text = "",
 		Parent = Main,
@@ -1647,12 +2614,13 @@ function Ghostline.new(cfg)
 		if Window.Minimized then
 			return
 		end
-		local nx = math.clamp(pos.X - Root.AbsolutePosition.X + 8, 480, 900)
-		local ny = math.clamp(pos.Y - Root.AbsolutePosition.Y + 8, 320, 700)
-		Root.Size = UDim2.fromOffset(nx, ny)
+		local nx = math.clamp((pos.X - Root.AbsolutePosition.X) / Window.UserScale + 8, 320, 900)
+		local ny = math.clamp((pos.Y - Root.AbsolutePosition.Y) / Window.UserScale + 8, 280, 700)
+		Window.DesiredSize = Vector2.new(nx, ny)
+		Window:Relayout(true)
 	end)
 
-	-- déplacement fluide
+	-- Déplacement fluide ------------------------------------------------------
 	local dragStart, startPos
 	MakeDrag(Window, Header, function(pos)
 		if not dragStart then
@@ -1669,7 +2637,91 @@ function Ghostline.new(cfg)
 		startPos = Root.Position
 	end)
 
-	-- Onglets ------------------------------------------------------------
+	-- Mise en page adaptative (mobile / tablette / PC) ------------------------
+	local function applyTab(t)
+		local compact = Window.Compact
+		t._lbl.Visible = not compact
+		if t._icon then
+			t._icon.Position = compact and UDim2.new(0.5, -9, 0.5, -9) or UDim2.new(0, 12, 0.5, -9)
+		end
+		t._letter.Visible = compact and not t._icon
+	end
+
+	function applySidebar(animated)
+		local sb = Window.Compact and 56 or 146
+		To(Sidebar, animated, 0.45, { Size = UDim2.new(0, sb, 1, -14) }, EASE.Quart)
+		To(ContentArea, animated, 0.45, {
+			Position = UDim2.new(0, sb + 14, 0, 0),
+			Size = UDim2.new(1, -(sb + 14), 1, 0),
+		}, EASE.Quart)
+		for _, t in ipairs(Window.Tabs) do
+			applyTab(t)
+		end
+		refreshProfile(animated)
+	end
+
+	function Window:Relayout(keepPos)
+		local a = ScreenGui.AbsoluteSize
+		if a.X < 10 or a.Y < 10 then
+			a = Vector2.new(1280, 720)
+		end
+		local s = Window.UserScale
+		local maxW, maxH = a.X * 0.96 / s, a.Y * 0.94 / s
+		local w = math.min(math.max(Window.DesiredSize.X, 320), maxW)
+		local h = math.min(math.max(Window.DesiredSize.Y, 280), maxH)
+		Root.Size = UDim2.fromOffset(w, h)
+		if not keepPos then
+			Root.Position = UDim2.new(0.5, -w / 2, 0.5, -h / 2)
+		end
+		local compact
+		if Window.CompactMode ~= nil then
+			compact = Window.CompactMode
+		else
+			compact = w < 560
+		end
+		local first = not Window._laidOut
+		if compact ~= Window.Compact or first then
+			Window.Compact = compact
+			Window._laidOut = true
+			applySidebar(not first)
+		end
+		local reserve = baseSearchW() + 104
+		titleLbl.Size = UDim2.new(1, -reserve, 0, subtitle and 22 or HEADER)
+		if subLbl then
+			subLbl.Size = UDim2.new(1, -reserve, 0, 14)
+		end
+		if not Search:IsFocused() then
+			Search.Size = UDim2.new(0, baseSearchW(), 0, 28)
+		end
+	end
+	track(ScreenGui:GetPropertyChangedSignal("AbsoluteSize"), function()
+		Window:Relayout(false)
+	end)
+
+	function Window:Center()
+		local w, h = Root.Size.X.Offset, Root.Size.Y.Offset
+		Tween(Root, 0.5, { Position = UDim2.new(0.5, -w / 2, 0.5, -h / 2) }, EASE.Exponential)
+	end
+	function Window:SetCompact(v)
+		Window.CompactMode = v
+		Window:Relayout(true)
+	end
+	function Window:SetUserScale(v)
+		Window.UserScale = math.clamp(v, 0.6, 1.5)
+		Window:Relayout(true)
+		if Window.Visible then
+			Tween(Scale, 0.4, { Scale = Window.UserScale }, EASE.Back)
+		end
+	end
+	function Window:SetGlass(a)
+		Tween(Main, 0.3, { BackgroundTransparency = math.clamp(a, 0, 0.9) })
+	end
+	function Window:SetBlur(on)
+		Window.BlurOn = (on and Blur ~= nil) and true or false
+		applyBlur()
+	end
+
+	-- Onglets ------------------------------------------------------------------
 	local function moveIndicator(tab, instant)
 		local y = 8 + 4 + (tab._index - 1) * 44 - TabList.CanvasPosition.Y + 8
 		if not Indicator.Visible then
@@ -1700,17 +2752,11 @@ function Ghostline.new(cfg)
 			return
 		end
 		Window.CurrentTab = tab
-		-- réinitialise la recherche
-		for _, t in ipairs(Window.Tabs) do
-			for _, e in ipairs(t._elements) do
-				e.Frame.Visible = true
-			end
-		end
-		Search.Text = ""
 		for _, t in ipairs(Window.Tabs) do
 			local active = t == tab
 			Tween(t._btn, 0.3, { BackgroundTransparency = active and 0.5 or 1 })
 			Tween(t._lbl, 0.3, { TextColor3 = active and Theme.Text or Theme.SubText })
+			Tween(t._letter, 0.3, { TextColor3 = active and Theme.Text or Theme.SubText })
 			if t._icon then
 				Tween(t._icon, 0.3, { ImageColor3 = active and Theme.AccentGlow or Theme.SubText })
 			end
@@ -1722,6 +2768,7 @@ function Ghostline.new(cfg)
 		tab._container.Visible = true
 		Tween(tab._container, 0.45, { Position = UDim2.new(0, 10, 0, 8) }, EASE.Quart)
 		moveIndicator(tab)
+		Search.Text = ""
 	end
 
 	function Window:MakeTab(tcfg)
@@ -1760,16 +2807,27 @@ function Ghostline.new(cfg)
 			Position = UDim2.new(0, hasIcon and 36 or 14, 0, 0),
 			Text = tabName,
 			TextColor3 = Theme.SubText,
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			Parent = btn,
 		})
-		Tab._btn, Tab._lbl = btn, lbl
+		local letter = TextLabel({
+			Size = UDim2.new(1, 0, 1, 0),
+			Text = string.upper(string.sub(tabName, 1, 1)),
+			Font = Enum.Font.GothamBold,
+			TextSize = 16,
+			TextColor3 = Theme.SubText,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Visible = false,
+			Parent = btn,
+		})
+		Tab._btn, Tab._lbl, Tab._letter = btn, lbl, letter
 
 		local Container = New("ScrollingFrame", {
 			Size = UDim2.new(1, -20, 1, -16),
 			Position = UDim2.new(0, 10, 0, 8),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			ScrollBarThickness = 3,
+			ScrollBarThickness = IS_TOUCH and 5 or 3,
 			ScrollBarImageColor3 = Theme.AccentGlow,
 			CanvasSize = UDim2.new(),
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -1797,10 +2855,7 @@ function Ghostline.new(cfg)
 			end
 		end)
 		btn.InputBegan:Connect(function(input)
-			if
-				input.UserInputType == Enum.UserInputType.MouseButton1
-				or input.UserInputType == Enum.UserInputType.Touch
-			then
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 				Ripple(btn, input.Position.X, input.Position.Y)
 			end
 		end)
@@ -1808,6 +2863,7 @@ function Ghostline.new(cfg)
 			Window:SelectTab(Tab)
 		end)
 
+		applyTab(Tab)
 		BuildElements(Tab, Container, Tab, Window)
 
 		if #Window.Tabs == 1 then
@@ -1817,19 +2873,206 @@ function Ghostline.new(cfg)
 	end
 	Window.CreateTab = Window.MakeTab
 
-	-- recherche ---------------------------------------------------------
-	track(Search:GetPropertyChangedSignal("Text"), function()
-		local q = string.lower(Search.Text)
-		local tab = Window.CurrentTab
-		if not tab then
-			return
-		end
-		for _, e in ipairs(tab._elements) do
-			e.Frame.Visible = q == "" or string.find(e.Name, q, 1, true) ~= nil
-		end
-	end)
+	-- Onglet Réglages intégré ---------------------------------------------------
+	function Window:MakeSettingsTab(scfg)
+		scfg = scfg or {}
+		local tab = Window:MakeTab({ Name = scfg.Name or "Réglages", Icon = scfg.Icon })
 
-	-- afficher / masquer / réduire / détruire ---------------------------
+		local ui = tab:MakeSection({ Name = "Interface" })
+		ui:MakeSlider({
+			Name = "Taille de l'interface", Min = 70, Max = 130, Default = 100, Increment = 5, Suffix = "%",
+			Flag = "gl_scale", Tooltip = "Agrandit ou réduit toute l'interface (utile sur tablette/mobile)",
+			Callback = function(v)
+				Window:SetUserScale(v / 100)
+			end,
+		})
+		ui:MakeSlider({
+			Name = "Opacité du verre", Min = 0, Max = 60, Default = 10, Suffix = "%", Flag = "gl_glass",
+			Callback = function(v)
+				Window:SetGlass(v / 100)
+			end,
+		})
+		ui:MakeSlider({
+			Name = "Vitesse des animations", Min = 50, Max = 200, Default = 100, Increment = 10, Suffix = "%",
+			Flag = "gl_speed", Tooltip = "100% = normal. Plus haut = plus rapide",
+			Callback = function(v)
+				Ghostline.AnimSpeed = v / 100
+			end,
+		})
+		ui:MakeToggle({
+			Name = "Flou d'arrière-plan", Default = Window.BlurOn, Flag = "gl_blur",
+			Callback = function(v)
+				Window:SetBlur(v)
+			end,
+		})
+		ui:MakeToggle({
+			Name = "Barre latérale compacte", Default = Window.Compact, Flag = "gl_compact",
+			Tooltip = "Automatique sur petit écran",
+			Callback = function(v)
+				Window:SetCompact(v)
+			end,
+		})
+		ui:MakeKeybind({
+			Name = "Afficher / masquer", Default = Window.ToggleKey,
+			Changed = function(k)
+				if k ~= Enum.KeyCode.Unknown then
+					Window.ToggleKey = k
+				end
+			end,
+		})
+
+		local pf = tab:MakeSection({ Name = "Profil" })
+		local tA = pf:MakeToggle({
+			Name = "Afficher l'avatar", Default = Profile.Avatar, Flag = "gl_show_avatar",
+			Callback = function(v)
+				Window:SetProfileVisibility(v, nil)
+			end,
+		})
+		local tN = pf:MakeToggle({
+			Name = "Afficher le pseudo", Default = Profile.Name, Flag = "gl_show_name",
+			Callback = function(v)
+				Window:SetProfileVisibility(nil, v)
+			end,
+		})
+		local tS = pf:MakeToggle({
+			Name = "Mode streamer", Default = Profile.Streamer, Flag = "gl_streamer",
+			Tooltip = "Masque ton pseudo partout dans l'interface",
+			Callback = function(v)
+				Window:SetStreamer(v)
+			end,
+		})
+		Window._sync = function()
+			tA:Set(Profile.Avatar, true)
+			tN:Set(Profile.Name, true)
+			tS:Set(Profile.Streamer, true)
+		end
+
+		local cf = tab:MakeSection({ Name = "Configurations" })
+		local cfgName = "default"
+		local list
+		cf:MakeTextbox({
+			Name = "Nom", Default = cfgName, Placeholder = "default",
+			Callback = function(t)
+				cfgName = (t ~= "" and t) or "default"
+			end,
+		})
+		list = cf:MakeDropdown({
+			Name = "Existantes", Options = Ghostline:ListConfigs(),
+			Callback = function(v)
+				if v then
+					cfgName = v
+				end
+			end,
+		})
+		cf:MakeButton({
+			Name = "Sauvegarder",
+			Callback = function()
+				local ok, err = Ghostline:SaveConfig(cfgName)
+				Ghostline:Notify({
+					Title = ok and "Config sauvegardée" or "Échec", Content = ok and cfgName or tostring(err),
+					Type = ok and "Success" or "Error",
+				})
+				list:Refresh(Ghostline:ListConfigs())
+			end,
+		})
+		cf:MakeButton({
+			Name = "Charger",
+			Callback = function()
+				local ok, err = Ghostline:LoadConfig(cfgName)
+				Ghostline:Notify({
+					Title = ok and "Config chargée" or "Échec", Content = ok and cfgName or tostring(err),
+					Type = ok and "Success" or "Error",
+				})
+			end,
+		})
+		cf:MakeToggle({
+			Name = "Sauvegarde automatique",
+			Tooltip = "Enregistre à chaque changement (le nom ci-dessus est utilisé)",
+			Callback = function(v)
+				if v then
+					Ghostline:EnableAutoSave(cfgName)
+				else
+					Ghostline._auto = nil
+				end
+			end,
+		})
+		tab:MakeParagraph({
+			Title = "Astuces",
+			Content = "Clic droit (ou appui long) sur un réglage : remise à zéro.\nDouble-clic sur un slider : valeur par défaut.\nCtrl+K : recherche globale.",
+		})
+		return tab
+	end
+
+	-- Bouton flottant (mobile / tablette) -----------------------------------------
+	local Launcher, ring
+	if cfg.Launcher == true or (cfg.Launcher == nil and IS_TOUCH) then
+		Launcher = New("TextButton", {
+			Size = UDim2.fromOffset(52, 52),
+			Position = UDim2.new(0, 12, 0.5, -26),
+			BackgroundColor3 = WHITE,
+			Text = "",
+			AutoButtonColor = false,
+			BorderSizePixel = 0,
+			ZIndex = 50,
+			Parent = ScreenGui,
+		})
+		Corner(Launcher, 999)
+		Gradient(Launcher, { { 0, Theme.AccentGlow }, { 1, Theme.AccentDeep } }, 45)
+		Stroke(Launcher, Theme.Text, 1.5, 0.6)
+		TextLabel({
+			Size = UDim2.new(1, 0, 1, 0),
+			Text = "G",
+			Font = Enum.Font.GothamBold,
+			TextSize = 24,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Parent = Launcher,
+		})
+		ring = New("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0.5, 0),
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundTransparency = 1,
+			Visible = false,
+			ZIndex = 49,
+			Parent = Launcher,
+		})
+		Corner(ring, 999)
+		local ringStroke = Stroke(ring, Theme.AccentGlow, 2, 0)
+		local pulse = TweenInfo.new(1.8, EASE.Quad, DIR.Out, -1)
+		TweenService:Create(ring, pulse, { Size = UDim2.new(1.7, 0, 1.7, 0) }):Play()
+		TweenService:Create(ringStroke, pulse, { Transparency = 1 }):Play()
+
+		local moved, dstart, spos = false, nil, nil
+		MakeDrag(Window, Launcher, function(pos)
+			if not dstart then
+				return
+			end
+			local d = pos - dstart
+			if d.Magnitude > 8 then
+				moved = true
+			end
+			if moved then
+				Launcher.Position = UDim2.new(spos.X.Scale, spos.X.Offset + d.X, spos.Y.Scale, spos.Y.Offset + d.Y)
+			end
+		end, function()
+			dstart = nil
+			if not moved then
+				Window:Toggle()
+			else
+				local a = ScreenGui.AbsoluteSize
+				local x = Launcher.AbsolutePosition.X
+				local tx = (x + 26 < a.X / 2) and 8 or (a.X - 60)
+				local ty = math.clamp(Launcher.AbsolutePosition.Y, 8, a.Y - 60)
+				Tween(Launcher, 0.5, { Position = UDim2.fromOffset(tx, ty) }, EASE.Back)
+			end
+		end, function(pos)
+			dstart = pos
+			spos = Launcher.Position
+			moved = false
+		end)
+	end
+
+	-- Afficher / masquer / réduire / détruire ---------------------------------------
 	function Window:Toggle(state)
 		if state == nil then
 			state = not Window.Visible
@@ -1837,8 +3080,10 @@ function Ghostline.new(cfg)
 		Window.Visible = state
 		if state then
 			Root.Visible = true
-			Tween(Scale, 0.55, { Scale = 1 }, EASE.Back)
+			Tween(Scale, 0.55, { Scale = Window.UserScale }, EASE.Back)
 		else
+			Window:CloseProfile()
+			Search:ReleaseFocus()
 			Tween(Scale, 0.3, { Scale = 0.05 }, EASE.Quart, DIR.In)
 			task.delay(0.3, function()
 				if not Window.Visible then
@@ -1846,11 +3091,18 @@ function Ghostline.new(cfg)
 				end
 			end)
 		end
+		applyBlur()
+		if ring then
+			ring.Visible = not state
+		end
 	end
 
 	function Window:Minimize(state)
 		if state == nil then
 			state = not Window.Minimized
+		end
+		if state then
+			Window:CloseProfile()
 		end
 		Window.Minimized = state
 		if state then
@@ -1871,18 +3123,36 @@ function Ghostline.new(cfg)
 	end
 
 	function Window:Destroy()
+		if Window.Destroyed then
+			return
+		end
+		Window.Destroyed = true
+		panelOpen = false
 		for _, c in ipairs(Window._conns) do
 			c:Disconnect()
 		end
 		Window._conns = {}
 		Tween(Scale, 0.35, { Scale = 0.05 }, EASE.Quart, DIR.In)
-		task.delay(0.4, function()
-			Root:Destroy()
-		end)
 		local i = table.find(Ghostline.Windows, Window)
 		if i then
 			table.remove(Ghostline.Windows, i)
 		end
+		if Blur and Blur.Parent then
+			Tween(Blur, 0.4, { Size = 0 })
+			if #Ghostline.Windows == 0 then
+				task.delay(0.5, function()
+					if Blur.Parent then
+						Blur:Destroy()
+					end
+				end)
+			end
+		end
+		if Launcher then
+			Launcher:Destroy()
+		end
+		task.delay(0.4, function()
+			Root:Destroy()
+		end)
 	end
 
 	function Window:Notify(ncfg)
@@ -1895,19 +3165,41 @@ function Ghostline.new(cfg)
 	MinBtn.MouseButton1Click:Connect(function()
 		Window:Minimize()
 	end)
+
 	track(UserInputService.InputBegan, function(input, gpe)
-		if gpe or Window.Binding then
+		if Window.Binding then
 			return
 		end
-		if input.KeyCode == toggleKey then
+		if input.KeyCode == Enum.KeyCode.Escape then
+			if panelOpen then
+				Window:CloseProfile()
+			end
+			return
+		end
+		if gpe then
+			return
+		end
+		if input.KeyCode == Window.ToggleKey then
 			Window:Toggle()
+		elseif
+			input.KeyCode == Enum.KeyCode.K
+			and Window.Visible
+			and (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl))
+		then
+			task.defer(function()
+				task.wait()
+				Search:CaptureFocus()
+			end)
 		end
 	end)
 
 	table.insert(Ghostline.Windows, Window)
+	Window:Relayout(false)
+	refreshProfile(false)
 
 	-- animation d'ouverture
-	Tween(Scale, 0.8, { Scale = 1 }, EASE.Back)
+	Tween(Scale, 0.8, { Scale = Window.UserScale }, EASE.Back)
+	applyBlur()
 
 	return Window
 end
@@ -1918,7 +3210,7 @@ function Ghostline:Destroy()
 	for _, w in ipairs(table.clone(Ghostline.Windows)) do
 		w:Destroy()
 	end
-	task.delay(0.5, function()
+	task.delay(0.6, function()
 		ScreenGui:Destroy()
 	end)
 end
