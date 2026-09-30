@@ -1,6 +1,6 @@
 --[[
     ╔═══════════════════════════════════════════════╗
-    ║   GHOSTLINE UI LIBRARY  v2.1                  ║
+    ║   GHOSTLINE UI LIBRARY  v2.2                  ║
     ║   Liquid Glass · Red Gradient · Fluid Anims   ║
     ╚═══════════════════════════════════════════════╝
 
@@ -22,7 +22,7 @@ local GuiService = game:GetService("GuiService")
 
 local Ghostline = {}
 Ghostline.__index = Ghostline
-Ghostline.Version = "2.1.0"
+Ghostline.Version = "2.2.0"
 Ghostline.Flags = {}
 Ghostline.Windows = {}
 Ghostline.ConfigFolder = "Ghostline"
@@ -61,6 +61,15 @@ local function Tween(obj, time, props, style, dir)
 	local t = TweenService:Create(obj, TweenInfo.new((time or 0.3) / (Ghostline.AnimSpeed or 1), style or EASE.Quart, dir or DIR.Out), props)
 	t:Play()
 	return t
+end
+
+local function To(obj, animated, time, props, style, dir)
+	if animated then
+		return Tween(obj, time, props, style, dir)
+	end
+	for k, v in pairs(props) do
+		obj[k] = v
+	end
 end
 
 local function New(class, props, children)
@@ -507,6 +516,177 @@ function Ghostline:LoadConfig(name)
 		end
 	end
 	return true
+end
+
+----------------------------------------------------------------------
+-- THÈMES (couleurs + mode sombre / clair)
+----------------------------------------------------------------------
+
+-- Couleurs de base définies ici. Ajoute les tiennes avec Ghostline:AddTheme("Orange", Color3.fromRGB(255,140,0))
+Ghostline.Themes = {
+	Rouge = Color3.fromRGB(255, 45, 85),
+	Rose = Color3.fromRGB(255, 92, 170),
+	Violet = Color3.fromRGB(160, 92, 255),
+	Bleu = Color3.fromRGB(56, 140, 255),
+	Vert = Color3.fromRGB(46, 214, 120),
+	Jaune = Color3.fromRGB(255, 200, 40),
+	Noir = Color3.fromRGB(34, 34, 42),
+}
+Ghostline.ThemeOrder = { "Rouge", "Rose", "Violet", "Bleu", "Vert", "Jaune", "Noir" }
+Ghostline.CurrentTheme = "Rouge"
+Ghostline.CurrentMode = "dark" -- "dark" | "light"
+Ghostline._themeHooks = {}
+Ghostline._themeGen = 0
+
+local PALETTE_KEYS = {
+	"BackgroundPrimary", "BackgroundSecondary", "GlassTint", "AccentGlow", "AccentDeep",
+	"AccentSoft", "Text", "SubText", "Border",
+}
+
+local function ckey(c)
+	return string.format("%.4f,%.4f,%.4f", c.R, c.G, c.B)
+end
+
+-- Mode sombre : la couleur est assombrie pour les fonds, éclaircie pour les accents.
+-- Mode clair : les fonds deviennent clairs (teinte pâle) et la couleur reste vive pour les accents.
+local function buildPalette(base, mode)
+	local h, s, v = base:ToHSV()
+	local c = Color3.fromHSV
+	if mode == "light" then
+		return {
+			BackgroundPrimary = c(h, s * 0.05, 0.985),
+			BackgroundSecondary = c(h, s * 0.12, 0.93),
+			GlassTint = c(h, s * 0.26, 0.975),
+			Border = c(h, s * 0.32, 0.80),
+			Text = c(h, s * 0.45, 0.13),
+			SubText = c(h, s * 0.35, 0.40),
+			AccentGlow = c(h, s, v * 0.95),
+			AccentDeep = c(h, s * 0.9, v * 0.78),
+			AccentSoft = c(h, s, v * 0.6),
+		}
+	end
+	return {
+		BackgroundPrimary = c(h, math.min(1, s * 0.75), 0.06),
+		BackgroundSecondary = c(h, math.min(1, s * 0.8), 0.115),
+		GlassTint = c(h, math.min(1, s * 0.78), 0.21),
+		Border = c(h, math.min(1, s * 0.62), 0.37),
+		Text = c(h, s * 0.05, 0.98),
+		SubText = c(h, s * 0.22, 0.70),
+		AccentGlow = c(h, s, math.max(v, 0.95)),
+		AccentDeep = c(h, s, math.clamp(v * 0.62, 0.32, 1)),
+		AccentSoft = c(h, s * 0.5, 1),
+	}
+end
+
+local function recolor(map, newSet, animate)
+	for _, d in ipairs(ScreenGui:GetDescendants()) do
+		local function fix(prop)
+			local k = ckey(d[prop])
+			if not animate and newSet[k] then
+				return
+			end
+			local n = map[k]
+			if n then
+				if animate then
+					Tween(d, 0.45, { [prop] = n }, EASE.Quad)
+				else
+					d[prop] = n
+				end
+			end
+		end
+		if d:IsA("GuiObject") then
+			if not d:GetAttribute("GLFixed") then
+				fix("BackgroundColor3")
+			end
+			if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+				fix("TextColor3")
+			end
+			if d:IsA("TextBox") then
+				fix("PlaceholderColor3")
+			end
+			if d:IsA("ImageLabel") or d:IsA("ImageButton") then
+				fix("ImageColor3")
+			end
+			if d:IsA("ScrollingFrame") then
+				fix("ScrollBarImageColor3")
+			end
+		elseif d:IsA("UIStroke") then
+			fix("Color")
+		elseif d:IsA("UIGradient") then
+			local changed, keys = false, {}
+			for i, kp in ipairs(d.Color.Keypoints) do
+				local n = map[ckey(kp.Value)]
+				if n and (animate or not newSet[ckey(kp.Value)]) then
+					changed = true
+				else
+					n = nil
+				end
+				keys[i] = ColorSequenceKeypoint.new(kp.Time, n or kp.Value)
+			end
+			if changed then
+				d.Color = ColorSequence.new(keys)
+			end
+		end
+	end
+end
+
+local function applyPalette(pal)
+	Ghostline._themeGen += 1
+	local gen = Ghostline._themeGen
+	local map, newSet = {}, {}
+	for _, k in ipairs(PALETTE_KEYS) do
+		map[ckey(Theme[k])] = pal[k]
+		newSet[ckey(pal[k])] = true
+	end
+	for _, k in ipairs(PALETTE_KEYS) do
+		Theme[k] = pal[k]
+	end
+	recolor(map, newSet, true)
+	-- 2e passe : rattrape les tweens qui se terminaient avec l'ancienne couleur
+	task.delay(0.7, function()
+		if Ghostline._themeGen == gen then
+			recolor(map, newSet, false)
+		end
+	end)
+end
+
+function Ghostline:AddTheme(name, color)
+	if not Ghostline.Themes[name] then
+		table.insert(Ghostline.ThemeOrder, name)
+	end
+	Ghostline.Themes[name] = color
+end
+
+function Ghostline:SetTheme(name, mode)
+	name = name or Ghostline.CurrentTheme
+	local base = Ghostline.Themes[name]
+	if not base then
+		return false, "Thème inconnu : " .. tostring(name)
+	end
+	if mode == "light" or mode == "clair" then
+		mode = "light"
+	elseif mode == "dark" or mode == "sombre" then
+		mode = "dark"
+	else
+		mode = Ghostline.CurrentMode
+	end
+	Ghostline.CurrentTheme, Ghostline.CurrentMode = name, mode
+	applyPalette(buildPalette(base, mode))
+	for i = #Ghostline._themeHooks, 1, -1 do
+		local ok, keep = pcall(Ghostline._themeHooks[i])
+		if not ok or keep == false then
+			table.remove(Ghostline._themeHooks, i)
+		end
+	end
+	return true
+end
+
+function Ghostline:SetMode(mode)
+	return Ghostline:SetTheme(Ghostline.CurrentTheme, mode)
+end
+
+function Ghostline:ToggleMode()
+	return Ghostline:SetMode(Ghostline.CurrentMode == "dark" and "light" or "dark")
 end
 
 ----------------------------------------------------------------------
@@ -1463,6 +1643,134 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
+	-- THEME PICKER ---------------------------------------------------
+	function Target:MakeThemePicker(cfg)
+		cfg = cfg or {}
+		local name = cfg.Name or "Thème"
+		local size = IS_TOUCH and 34 or 28
+		local row = Row(92, name)
+		TextLabel({ Size = UDim2.new(0.4, 0, 0, 38), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
+
+		local seg = New("Frame", {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -10, 0, 6),
+			Size = UDim2.new(0, 140, 0, 26),
+			BackgroundColor3 = Theme.BackgroundPrimary,
+			BackgroundTransparency = 0.2,
+			BorderSizePixel = 0,
+			Parent = row,
+		})
+		Corner(seg, 13)
+		local pill = New("Frame", {
+			Position = UDim2.new(0, 3, 0, 3),
+			Size = UDim2.new(0.5, -3, 1, -6),
+			BackgroundColor3 = WHITE,
+			BorderSizePixel = 0,
+			Parent = seg,
+		})
+		Corner(pill, 10)
+		Gradient(pill, { { 0, Theme.AccentDeep }, { 1, Theme.AccentGlow } }, 0)
+		local function segBtn(text, x)
+			return New("TextButton", {
+				Size = UDim2.new(0.5, 0, 1, 0),
+				Position = UDim2.new(x, 0, 0, 0),
+				BackgroundTransparency = 1,
+				Text = text,
+				Font = Enum.Font.GothamBold,
+				TextSize = 11,
+				TextColor3 = Theme.SubText,
+				AutoButtonColor = false,
+				Parent = seg,
+			})
+		end
+		local darkBtn, lightBtn = segBtn("Sombre", 0), segBtn("Clair", 0.5)
+
+		local holder = New("Frame", {
+			Position = UDim2.new(0, 8, 0, 44),
+			Size = UDim2.new(1, -16, 0, 40),
+			BackgroundTransparency = 1,
+			Parent = row,
+		})
+		New("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 9),
+			Parent = holder,
+		})
+
+		local obj = { Value = { Theme = Ghostline.CurrentTheme, Mode = Ghostline.CurrentMode }, Instance = row, Kind = "Theme" }
+		local swatches = {}
+		for i, tname in ipairs(Ghostline.ThemeOrder) do
+			local sw = New("TextButton", {
+				Size = UDim2.fromOffset(size, size),
+				BackgroundColor3 = Ghostline.Themes[tname],
+				Text = "",
+				AutoButtonColor = false,
+				BorderSizePixel = 0,
+				LayoutOrder = i,
+				Parent = holder,
+			})
+			sw:SetAttribute("GLFixed", true) -- ne pas recolorer la pastille
+			Corner(sw, 999)
+			local ring = Stroke(sw, Theme.Border, 1, 0.3)
+			swatches[tname] = { btn = sw, ring = ring }
+			sw.InputBegan:Connect(function(input)
+				if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+					Ripple(sw, input.Position.X, input.Position.Y)
+				end
+			end)
+			sw.MouseButton1Click:Connect(function()
+				obj:Set({ Theme = tname })
+			end)
+		end
+
+		local function paint(animated)
+			local cur, mode = Ghostline.CurrentTheme, Ghostline.CurrentMode
+			for tname, sp in pairs(swatches) do
+				local sel = tname == cur
+				To(sp.ring, animated, 0.3, {
+					Color = sel and Theme.Text or Theme.Border,
+					Thickness = sel and 2.5 or 1,
+					Transparency = sel and 0 or 0.3,
+				})
+				To(sp.btn, animated, 0.35, { Size = UDim2.fromOffset(sel and size + 6 or size, sel and size + 6 or size) }, EASE.Back)
+			end
+			To(pill, animated, 0.4, { Position = mode == "light" and UDim2.new(0.5, 0, 0, 3) or UDim2.new(0, 3, 0, 3) }, EASE.Back)
+			To(darkBtn, animated, 0.3, { TextColor3 = mode == "dark" and Theme.Text or Theme.SubText })
+			To(lightBtn, animated, 0.3, { TextColor3 = mode == "light" and Theme.Text or Theme.SubText })
+		end
+
+		function obj:Set(v, silent)
+			v = type(v) == "table" and v or {}
+			Ghostline:SetTheme(v.Theme or Ghostline.CurrentTheme, v.Mode or Ghostline.CurrentMode)
+			obj.Value = { Theme = Ghostline.CurrentTheme, Mode = Ghostline.CurrentMode }
+			paint(true)
+			if not silent then
+				safe(cfg.Callback, obj.Value)
+			end
+		end
+		function obj:Get()
+			return obj.Value
+		end
+		darkBtn.MouseButton1Click:Connect(function()
+			obj:Set({ Mode = "dark" })
+		end)
+		lightBtn.MouseButton1Click:Connect(function()
+			obj:Set({ Mode = "light" })
+		end)
+		table.insert(Ghostline._themeHooks, function()
+			if not row.Parent then
+				return false
+			end
+			obj.Value = { Theme = Ghostline.CurrentTheme, Mode = Ghostline.CurrentMode }
+			paint(true)
+		end)
+		paint(false)
+		return Finish(cfg, obj)
+	end
+
 	-- SECTION (repliable) -------------------------------------------
 	function Target:MakeSection(cfg)
 		cfg = type(cfg) == "string" and { Name = cfg } or (cfg or {})
@@ -1541,15 +1849,6 @@ end
 local GOLD1 = Color3.fromRGB(255, 214, 102)
 local GOLD2 = Color3.fromRGB(255, 150, 40)
 
-local function To(obj, animated, time, props, style, dir)
-	if animated then
-		return Tween(obj, time, props, style, dir)
-	end
-	for k, v in pairs(props) do
-		obj[k] = v
-	end
-end
-
 local function toSeq(stops)
 	local keys = {}
 	for _, s in ipairs(stops) do
@@ -1587,6 +1886,9 @@ end
 
 function Ghostline.new(cfg)
 	cfg = cfg or {}
+	if cfg.Theme or cfg.Mode then
+		Ghostline:SetTheme(cfg.Theme or Ghostline.CurrentTheme, cfg.Mode or Ghostline.CurrentMode)
+	end
 	local player = Players.LocalPlayer
 	local Window = {
 		Tabs = {},
@@ -1681,18 +1983,6 @@ function Ghostline.new(cfg)
 		Parent = Root,
 	})
 	local Scale = New("UIScale", { Scale = 0.05, Parent = Holder })
-
-	local Shadow = New("ImageLabel", {
-		Position = UDim2.new(0, -30, 0, -30),
-		Size = UDim2.new(1, 60, 1, 60),
-		BackgroundTransparency = 1,
-		Image = "rbxassetid://5028857084",
-		ImageColor3 = Theme.AccentDeep,
-		ImageTransparency = 0.55,
-		ScaleType = Enum.ScaleType.Slice,
-		SliceCenter = Rect.new(24, 24, 276, 276),
-		Parent = Holder,
-	})
 
 	local Main = New("Frame", {
 		Size = UDim2.new(1, 0, 1, 0),
@@ -2878,6 +3168,9 @@ function Ghostline.new(cfg)
 		scfg = scfg or {}
 		local tab = Window:MakeTab({ Name = scfg.Name or "Réglages", Icon = scfg.Icon })
 
+		local look = tab:MakeSection({ Name = "Apparence" })
+		look:MakeThemePicker({ Name = "Thème", Flag = "gl_theme", Tooltip = "Couleur + mode sombre / clair" })
+
 		local ui = tab:MakeSection({ Name = "Interface" })
 		ui:MakeSlider({
 			Name = "Taille de l'interface", Min = 70, Max = 130, Default = 100, Increment = 5, Suffix = "%",
@@ -3107,7 +3400,6 @@ function Ghostline.new(cfg)
 		Window.Minimized = state
 		if state then
 			Tween(Main, 0.45, { Size = UDim2.new(1, 0, 0, HEADER + 2) }, EASE.Exponential)
-			Tween(Shadow, 0.45, { Size = UDim2.new(1, 60, 0, HEADER + 62) }, EASE.Exponential)
 			Resize.Visible = false
 			task.delay(0.3, function()
 				if Window.Minimized then
@@ -3118,7 +3410,6 @@ function Ghostline.new(cfg)
 			Body.Visible = true
 			Resize.Visible = true
 			Tween(Main, 0.5, { Size = UDim2.new(1, 0, 1, 0) }, EASE.Exponential)
-			Tween(Shadow, 0.5, { Size = UDim2.new(1, 60, 1, 60) }, EASE.Exponential)
 		end
 	end
 
@@ -3216,3 +3507,4 @@ function Ghostline:Destroy()
 end
 
 return Ghostline
+
