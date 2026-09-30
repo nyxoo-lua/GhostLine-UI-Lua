@@ -1,14 +1,3 @@
---[[
-    ╔═══════════════════════════════════════════════╗
-    ║   GHOSTLINE UI LIBRARY  v2.2                  ║
-    ║   Liquid Glass · Red Gradient · Fluid Anims   ║
-    ╚═══════════════════════════════════════════════╝
-
-    Composants : Window, Tab, Section (repliable), Label, Paragraph, Button,
-                 Toggle, Checkbox, Slider, Textbox, Dropdown (simple/multi),
-                 Keybind (Press/Hold), ColorPicker (HSV + hex), ProgressBar,
-                 Divider, Notifications, Recherche, Flags + Save/Load config.
-]]
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -22,7 +11,7 @@ local GuiService = game:GetService("GuiService")
 
 local Ghostline = {}
 Ghostline.__index = Ghostline
-Ghostline.Version = "2.2.0"
+Ghostline.Version = "2.3.0"
 Ghostline.Flags = {}
 Ghostline.Windows = {}
 Ghostline.ConfigFolder = "Ghostline"
@@ -44,6 +33,134 @@ Ghostline.Theme = {
 }
 local Theme = Ghostline.Theme
 
+Ghostline.DefaultPalette = {}
+for _, k in ipairs({ "BackgroundPrimary", "BackgroundSecondary", "GlassTint", "AccentGlow", "AccentDeep", "AccentSoft", "Text", "SubText", "Border" }) do
+	Ghostline.DefaultPalette[k] = Theme[k]
+end
+
+local BaseStyle = {
+	Layout = "Side",
+	Header = 48,
+	Size = Vector2.new(640, 430),
+	Sidebar = 146,
+	WindowRadius = 20,
+	PanelRadius = 18,
+	SidebarRadius = 14,
+	TabRadius = 10,
+	RowRadius = 10,
+	SectionRadius = 12,
+	NotifRadius = 14,
+	MainAlpha = 0.1,
+	RowAlpha = 0.4,
+	RowHoverAlpha = 0.25,
+	SidebarAlpha = 0.5,
+	TabActiveAlpha = 0.5,
+	MainGradient = true,
+	RowGradient = true,
+	RowHoverStroke = true,
+	TabFlat = false,
+	Orbs = true,
+	Sheen = true,
+	SpinStroke = true,
+	AccentBar = true,
+	TitleGradient = true,
+	Indicator = true,
+	Toggle = "Pill",
+	LauncherText = "G",
+}
+Ghostline.Styles = { Ghostline = BaseStyle }
+Ghostline.StyleOrder = { "Ghostline" }
+
+function Ghostline:AddStyle(name, def)
+	Ghostline.Styles[name] = setmetatable(def or {}, { __index = BaseStyle })
+	if not table.find(Ghostline.StyleOrder, name) then
+		table.insert(Ghostline.StyleOrder, name)
+	end
+end
+
+Ghostline:AddStyle("Rayfield", {
+	Layout = "Top",
+	Header = 44,
+	Size = Vector2.new(580, 410),
+	WindowRadius = 10,
+	PanelRadius = 10,
+	SidebarRadius = 8,
+	TabRadius = 7,
+	RowRadius = 6,
+	SectionRadius = 8,
+	NotifRadius = 8,
+	MainAlpha = 0,
+	RowAlpha = 0,
+	RowHoverAlpha = 0,
+	SidebarAlpha = 0,
+	TabActiveAlpha = 0,
+	MainGradient = false,
+	RowGradient = false,
+	RowHoverStroke = false,
+	TabFlat = true,
+	Orbs = false,
+	Sheen = false,
+	SpinStroke = false,
+	AccentBar = false,
+	TitleGradient = false,
+	Indicator = false,
+	Toggle = "Pill",
+	LauncherText = "R",
+	Palette = {
+		BackgroundPrimary = Color3.fromRGB(25, 25, 25),
+		BackgroundSecondary = Color3.fromRGB(32, 32, 32),
+		GlassTint = Color3.fromRGB(40, 40, 40),
+		Border = Color3.fromRGB(56, 56, 56),
+		Text = Color3.fromRGB(240, 240, 240),
+		SubText = Color3.fromRGB(160, 160, 160),
+		AccentGlow = Color3.fromRGB(0, 146, 214),
+		AccentDeep = Color3.fromRGB(0, 108, 162),
+		AccentSoft = Color3.fromRGB(96, 184, 242),
+	},
+})
+
+Ghostline:AddStyle("Orion", {
+	Layout = "Side",
+	Header = 44,
+	Size = Vector2.new(620, 410),
+	Sidebar = 150,
+	WindowRadius = 8,
+	PanelRadius = 8,
+	SidebarRadius = 6,
+	TabRadius = 5,
+	RowRadius = 5,
+	SectionRadius = 6,
+	NotifRadius = 6,
+	MainAlpha = 0,
+	RowAlpha = 0,
+	RowHoverAlpha = 0,
+	SidebarAlpha = 0,
+	TabActiveAlpha = 0.35,
+	MainGradient = false,
+	RowGradient = false,
+	RowHoverStroke = true,
+	TabFlat = true,
+	Orbs = false,
+	Sheen = false,
+	SpinStroke = false,
+	AccentBar = false,
+	TitleGradient = false,
+	Indicator = true,
+	Toggle = "Box",
+	LauncherText = "O",
+	Palette = {
+		BackgroundPrimary = Color3.fromRGB(21, 21, 26),
+		BackgroundSecondary = Color3.fromRGB(29, 29, 36),
+		GlassTint = Color3.fromRGB(37, 37, 46),
+		Border = Color3.fromRGB(62, 62, 76),
+		Text = Color3.fromRGB(238, 238, 244),
+		SubText = Color3.fromRGB(148, 148, 162),
+		AccentGlow = Color3.fromRGB(9, 99, 195),
+		AccentDeep = Color3.fromRGB(6, 70, 140),
+		AccentSoft = Color3.fromRGB(80, 150, 235),
+	},
+})
+
 local EASE = Enum.EasingStyle
 local DIR = Enum.EasingDirection
 local WHITE = Color3.new(1, 1, 1)
@@ -52,10 +169,6 @@ local IS_TOUCH = UserInputService.TouchEnabled
 local function TH(h)
 	return IS_TOUCH and (h + 6) or h
 end
-
-----------------------------------------------------------------------
--- UTILITAIRES
-----------------------------------------------------------------------
 
 local function Tween(obj, time, props, style, dir)
 	local t = TweenService:Create(obj, TweenInfo.new((time or 0.3) / (Ghostline.AnimSpeed or 1), style or EASE.Quart, dir or DIR.Out), props)
@@ -105,7 +218,6 @@ local function Stroke(parent, color, thickness, transparency)
 	})
 end
 
--- stops = {{pos, Color3}, ...}  |  transparency = {{pos, value}, ...}
 local function Gradient(parent, stops, rotation, transparency)
 	local keys = {}
 	for _, s in ipairs(stops) do
@@ -192,7 +304,7 @@ local function MakeDrag(Window, hit, onMove, onEnd, onStart)
 	Window._track(hit.InputBegan, function(input)
 		if isPointer(input) then
 			dragging = true
-			-- évite que le ScrollingFrame parent défile pendant le glissement (tactile)
+
 			locked = hit:FindFirstAncestorWhichIsA("ScrollingFrame")
 			if locked then
 				locked.ScrollingEnabled = false
@@ -231,10 +343,6 @@ end
 local function toHex(c)
 	return string.format("#%02X%02X%02X", math.round(c.R * 255), math.round(c.G * 255), math.round(c.B * 255))
 end
-
-----------------------------------------------------------------------
--- ROOT GUI + NOTIFICATIONS
-----------------------------------------------------------------------
 
 do
 	local function killOld(container)
@@ -283,7 +391,6 @@ New("UIListLayout", {
 	Parent = NotifHolder,
 })
 
--- Tooltips (bureau uniquement) ---------------------------------------------
 local Tooltip = New("TextLabel", {
 	BackgroundColor3 = Theme.BackgroundPrimary,
 	BackgroundTransparency = 1,
@@ -357,9 +464,10 @@ function Ghostline:Notify(cfg)
 		Error = Theme.Error,
 	}
 	local color = kinds[cfg.Type or "Info"] or Theme.AccentGlow
+	local NS = Ghostline.ActiveStyle or Ghostline.Styles.Ghostline
 
 	local textH = TextService:GetTextSize(content, 12, Enum.Font.Gotham, Vector2.new(270, 1000)).Y
-	local height = 40 + textH + 16
+	local height = 40 + textH + 22
 
 	local Wrapper = New("Frame", {
 		BackgroundTransparency = 1,
@@ -369,23 +477,27 @@ function Ghostline:Notify(cfg)
 	local Card = New("TextButton", {
 		Size = UDim2.new(1, 0, 0, height),
 		Position = UDim2.new(1, 80, 0, 0),
-		BackgroundColor3 = WHITE,
+		BackgroundColor3 = NS.RowGradient and WHITE or Theme.BackgroundSecondary,
 		BackgroundTransparency = 1,
 		AutoButtonColor = false,
 		Text = "",
 		ClipsDescendants = true,
 		Parent = Wrapper,
 	})
-	Corner(Card, 14)
-	Gradient(Card, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundPrimary } }, 45)
+	Corner(Card, NS.NotifRadius)
+	if NS.RowGradient then
+		Gradient(Card, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundPrimary } }, 45)
+	end
 	local stroke = Stroke(Card, color, 1.2, 0.35)
 
-	New("Frame", {
-		Size = UDim2.new(0, 4, 1, 0),
+	local accent = New("Frame", {
+		Position = UDim2.new(0, 6, 0, 10),
+		Size = UDim2.new(0, 3, 1, -20),
 		BackgroundColor3 = color,
 		BorderSizePixel = 0,
 		Parent = Card,
 	})
+	Corner(accent, 2)
 	TextLabel({
 		Size = UDim2.new(1, -30, 0, 20),
 		Position = UDim2.new(0, 18, 0, 8),
@@ -406,8 +518,8 @@ function Ghostline:Notify(cfg)
 		Parent = Card,
 	})
 	local barBack = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 3),
-		Position = UDim2.new(0, 0, 1, -3),
+		Size = UDim2.new(1, -28, 0, 3),
+		Position = UDim2.new(0, 14, 1, -8),
 		BackgroundTransparency = 1,
 		Parent = Card,
 	})
@@ -417,6 +529,7 @@ function Ghostline:Notify(cfg)
 		BorderSizePixel = 0,
 		Parent = barBack,
 	})
+	Corner(bar, 2)
 	Gradient(bar, { { 0, Theme.AccentDeep }, { 1, color } }, 0)
 
 	Tween(Wrapper, 0.4, { Size = UDim2.new(1, 0, 0, height) })
@@ -444,14 +557,9 @@ function Ghostline:Notify(cfg)
 	end)
 end
 
--- compatibilité avec l'ancienne API
 function Ghostline:MakeNotification(cfg)
 	return Ghostline:Notify(cfg)
 end
-
-----------------------------------------------------------------------
--- CONFIG (Save / Load)
-----------------------------------------------------------------------
 
 local function hasFS()
 	return type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
@@ -518,11 +626,6 @@ function Ghostline:LoadConfig(name)
 	return true
 end
 
-----------------------------------------------------------------------
--- THÈMES (couleurs + mode sombre / clair)
-----------------------------------------------------------------------
-
--- Couleurs de base définies ici. Ajoute les tiennes avec Ghostline:AddTheme("Orange", Color3.fromRGB(255,140,0))
 Ghostline.Themes = {
 	Rouge = Color3.fromRGB(255, 45, 85),
 	Rose = Color3.fromRGB(255, 92, 170),
@@ -534,7 +637,7 @@ Ghostline.Themes = {
 }
 Ghostline.ThemeOrder = { "Rouge", "Rose", "Violet", "Bleu", "Vert", "Jaune", "Noir" }
 Ghostline.CurrentTheme = "Rouge"
-Ghostline.CurrentMode = "dark" -- "dark" | "light"
+Ghostline.CurrentMode = "dark"
 Ghostline._themeHooks = {}
 Ghostline._themeGen = 0
 
@@ -547,8 +650,6 @@ local function ckey(c)
 	return string.format("%.4f,%.4f,%.4f", c.R, c.G, c.B)
 end
 
--- Mode sombre : la couleur est assombrie pour les fonds, éclaircie pour les accents.
--- Mode clair : les fonds deviennent clairs (teinte pâle) et la couleur reste vive pour les accents.
 local function buildPalette(base, mode)
 	local h, s, v = base:ToHSV()
 	local c = Color3.fromHSV
@@ -642,7 +743,7 @@ local function applyPalette(pal)
 		Theme[k] = pal[k]
 	end
 	recolor(map, newSet, true)
-	-- 2e passe : rattrape les tweens qui se terminaient avec l'ancienne couleur
+
 	task.delay(0.7, function()
 		if Ghostline._themeGen == gen then
 			recolor(map, newSet, false)
@@ -689,10 +790,6 @@ function Ghostline:ToggleMode()
 	return Ghostline:SetMode(Ghostline.CurrentMode == "dark" and "light" or "dark")
 end
 
-----------------------------------------------------------------------
--- AUTOSAVE / LISTE DES CONFIGS
-----------------------------------------------------------------------
-
 function Ghostline:EnableAutoSave(name, delay)
 	Ghostline._auto = { Name = name or "autosave", Delay = delay or 2, Token = 0 }
 end
@@ -730,12 +827,9 @@ function Ghostline:ListConfigs()
 	return list
 end
 
-----------------------------------------------------------------------
--- COMPOSANTS (partagés par Tab et Section)
-----------------------------------------------------------------------
-
 local function BuildElements(Target, Container, Tab, Window)
 	local order = 0
+	local S = Window.S
 	local function nextOrder()
 		order += 1
 		return order
@@ -745,8 +839,8 @@ local function BuildElements(Target, Container, Tab, Window)
 		local isBtn = class == "TextButton"
 		local row = New(class or "Frame", {
 			Size = UDim2.new(1, 0, 0, height),
-			BackgroundColor3 = WHITE,
-			BackgroundTransparency = 0.4,
+			BackgroundColor3 = S.RowGradient and WHITE or Theme.BackgroundSecondary,
+			BackgroundTransparency = S.RowAlpha,
 			BorderSizePixel = 0,
 			ClipsDescendants = true,
 			LayoutOrder = nextOrder(),
@@ -756,16 +850,30 @@ local function BuildElements(Target, Container, Tab, Window)
 			row.Text = ""
 			row.AutoButtonColor = false
 		end
-		Corner(row, 10)
-		Gradient(row, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundSecondary } }, 25)
+		Corner(row, S.RowRadius)
+		if S.RowGradient then
+			Gradient(row, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundSecondary } }, 25)
+		end
 		local stroke = Stroke(row, Theme.Border, 1, 0.5)
 		row.MouseEnter:Connect(function()
-			Tween(stroke, 0.25, { Color = Theme.AccentGlow, Transparency = 0.15 })
-			Tween(row, 0.25, { BackgroundTransparency = 0.25 })
+			if S.RowHoverStroke then
+				Tween(stroke, 0.25, { Color = Theme.AccentGlow, Transparency = 0.15 })
+			end
+			if S.RowGradient then
+				Tween(row, 0.25, { BackgroundTransparency = S.RowHoverAlpha })
+			else
+				Tween(row, 0.25, { BackgroundColor3 = Theme.GlassTint })
+			end
 		end)
 		row.MouseLeave:Connect(function()
-			Tween(stroke, 0.25, { Color = Theme.Border, Transparency = 0.5 })
-			Tween(row, 0.25, { BackgroundTransparency = 0.4 })
+			if S.RowHoverStroke then
+				Tween(stroke, 0.25, { Color = Theme.Border, Transparency = 0.5 })
+			end
+			if S.RowGradient then
+				Tween(row, 0.25, { BackgroundTransparency = S.RowAlpha })
+			else
+				Tween(row, 0.25, { BackgroundColor3 = Theme.BackgroundSecondary })
+			end
 		end)
 		table.insert(Tab._elements, { Frame = row, Name = string.lower(name or ""), Label = name or "", Stroke = stroke, Tab = Tab })
 		return row, stroke
@@ -791,7 +899,6 @@ local function BuildElements(Target, Container, Tab, Window)
 			end
 		end
 
-		-- tooltip (survol)
 		if row and cfg.Tooltip and not IS_TOUCH then
 			row.MouseEnter:Connect(function()
 				Ghostline:ShowTooltip(cfg.Tooltip)
@@ -801,7 +908,6 @@ local function BuildElements(Target, Container, Tab, Window)
 			end)
 		end
 
-		-- remise à zéro : clic droit / appui long / double-clic (slider)
 		if row and obj.Set and obj.Kind and obj.Kind ~= "Progress" then
 			local default = obj.Value
 			if type(default) == "table" then
@@ -852,7 +958,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return obj
 	end
 
-	-- LABEL ----------------------------------------------------------
 	function Target:MakeLabel(text)
 		local lbl = TextLabel({
 			Size = UDim2.new(1, 0, 0, 22),
@@ -870,7 +975,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return obj
 	end
 
-	-- PARAGRAPH ------------------------------------------------------
 	function Target:MakeParagraph(cfg)
 		local row = Row(0, cfg.Title)
 		row.AutomaticSize = Enum.AutomaticSize.Y
@@ -908,7 +1012,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return obj
 	end
 
-	-- DIVIDER --------------------------------------------------------
 	function Target:MakeDivider()
 		local d = New("Frame", {
 			Size = UDim2.new(1, 0, 0, 2),
@@ -921,7 +1024,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return { Instance = d }
 	end
 
-	-- BUTTON ---------------------------------------------------------
 	function Target:MakeButton(cfg)
 		local name = cfg.Name or "Button"
 		local row = Row(TH(38), name, "TextButton")
@@ -933,7 +1035,7 @@ local function BuildElements(Target, Container, Tab, Window)
 			Parent = row,
 		})
 		Gradient(fill, { { 0, Theme.AccentDeep }, { 1, Theme.AccentGlow } }, 0)
-		Corner(fill, 10)
+		Corner(fill, S.RowRadius)
 		local lbl = TextLabel({
 			Size = UDim2.new(1, 0, 1, 0),
 			Text = name,
@@ -967,44 +1069,96 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- TOGGLE ---------------------------------------------------------
 	function Target:MakeToggle(cfg)
 		local name = cfg.Name or "Toggle"
 		local row = Row(TH(38), name, "TextButton")
 		TextLabel({ Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
-		local track = New("Frame", {
-			Size = UDim2.new(0, 44, 0, 22),
-			Position = UDim2.new(1, -56, 0.5, -11),
-			BackgroundColor3 = Theme.BackgroundPrimary,
-			BorderSizePixel = 0,
-			ClipsDescendants = true,
-			Parent = row,
-		})
-		Corner(track, 11)
-		Stroke(track, Theme.Border, 1, 0.3)
-		local onFill = New("Frame", {
-			Size = UDim2.new(1, 0, 1, 0),
-			BackgroundColor3 = WHITE,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Parent = track,
-		})
-		Gradient(onFill, { { 0, Theme.AccentDeep }, { 1, Theme.AccentGlow } }, 0)
-		local knob = New("Frame", {
-			Size = UDim2.new(0, 16, 0, 16),
-			Position = UDim2.new(0, 3, 0.5, -8),
-			BackgroundColor3 = Theme.Text,
-			BorderSizePixel = 0,
-			Parent = track,
-		})
-		Corner(knob, 8)
+		local apply
+		if S.Toggle == "Box" then
+			local box = New("Frame", {
+				Size = UDim2.new(0, 24, 0, 24),
+				Position = UDim2.new(1, -36, 0.5, -12),
+				BackgroundColor3 = Theme.BackgroundPrimary,
+				BorderSizePixel = 0,
+				Parent = row,
+			})
+			Corner(box, 5)
+			local boxStroke = Stroke(box, Theme.Border, 1.2, 0.1)
+			local boxFill = New("Frame", {
+				Size = UDim2.new(1, 0, 1, 0),
+				BackgroundColor3 = Theme.AccentGlow,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Parent = box,
+			})
+			Corner(boxFill, 5)
+			local legShort = New("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, -3.5, 0.5, 2.5),
+				Size = UDim2.new(0, 3, 0, 7),
+				Rotation = -45,
+				BackgroundColor3 = WHITE,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Parent = box,
+			})
+			Corner(legShort, 1)
+			local legLong = New("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, 3, 0.5, -0.5),
+				Size = UDim2.new(0, 3, 0, 13),
+				Rotation = 45,
+				BackgroundColor3 = WHITE,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Parent = box,
+			})
+			Corner(legLong, 1)
+			apply = function(v)
+				Tween(boxFill, 0.25, { BackgroundTransparency = v and 0 or 1 })
+				Tween(legShort, 0.25, { BackgroundTransparency = v and 0 or 1 })
+				Tween(legLong, 0.25, { BackgroundTransparency = v and 0 or 1 })
+				Tween(boxStroke, 0.25, { Color = v and Theme.AccentGlow or Theme.Border })
+			end
+		else
+			local track = New("Frame", {
+				Size = UDim2.new(0, 44, 0, 22),
+				Position = UDim2.new(1, -56, 0.5, -11),
+				BackgroundColor3 = Theme.BackgroundPrimary,
+				BorderSizePixel = 0,
+				ClipsDescendants = true,
+				Parent = row,
+			})
+			Corner(track, 11)
+			Stroke(track, Theme.Border, 1, 0.3)
+			local onFill = New("Frame", {
+				Size = UDim2.new(1, 0, 1, 0),
+				BackgroundColor3 = WHITE,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Parent = track,
+			})
+			Corner(onFill, 11)
+			Gradient(onFill, { { 0, Theme.AccentDeep }, { 1, Theme.AccentGlow } }, 0)
+			local knob = New("Frame", {
+				Size = UDim2.new(0, 16, 0, 16),
+				Position = UDim2.new(0, 3, 0.5, -8),
+				BackgroundColor3 = Theme.Text,
+				BorderSizePixel = 0,
+				Parent = track,
+			})
+			Corner(knob, 8)
+			apply = function(v)
+				Tween(onFill, 0.3, { BackgroundTransparency = v and 0 or 1 })
+				Tween(knob, 0.4, { Position = v and UDim2.new(0, 25, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }, EASE.Back)
+			end
+		end
 
 		local obj = { Value = false, Instance = row, Kind = "Toggle" }
 		function obj:Set(v, silent)
 			v = v and true or false
 			obj.Value = v
-			Tween(onFill, 0.3, { BackgroundTransparency = v and 0 or 1 })
-			Tween(knob, 0.4, { Position = v and UDim2.new(0, 25, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }, EASE.Back)
+			apply(v)
 			if not silent then
 				safe(cfg.Callback, v)
 			end
@@ -1019,7 +1173,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- CHECKBOX (case à cocher) --------------------------------------
 	function Target:MakeCheckbox(cfg)
 		local name = cfg.Name or "Checkbox"
 		local row = Row(TH(38), name, "TextButton")
@@ -1064,7 +1217,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- SLIDER ---------------------------------------------------------
 	function Target:MakeSlider(cfg)
 		local name = cfg.Name or "Slider"
 		local min, max = cfg.Min or 0, cfg.Max or 100
@@ -1154,7 +1306,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- PROGRESS BAR ---------------------------------------------------
 	function Target:MakeProgressBar(cfg)
 		local name = cfg.Name or "Progress"
 		local row = Row(46, name)
@@ -1197,7 +1348,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- TEXTBOX --------------------------------------------------------
 	function Target:MakeTextbox(cfg)
 		local name = cfg.Name or "Textbox"
 		local row = Row(TH(38), name)
@@ -1240,7 +1390,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- DROPDOWN -------------------------------------------------------
 	function Target:MakeDropdown(cfg)
 		local name = cfg.Name or "Dropdown"
 		local multi = cfg.Multi or false
@@ -1408,10 +1557,9 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- KEYBIND --------------------------------------------------------
 	function Target:MakeKeybind(cfg)
 		local name = cfg.Name or "Keybind"
-		local mode = cfg.Mode or "Press" -- "Press" | "Hold"
+		local mode = cfg.Mode or "Press"
 		local row = Row(TH(38), name)
 		TextLabel({ Size = UDim2.new(0.6, 0, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
 		local bind = New("TextButton", {
@@ -1491,7 +1639,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- COLOR PICKER ---------------------------------------------------
 	function Target:MakeColorPicker(cfg)
 		local name = cfg.Name or "Color"
 		local row = Row(38, name)
@@ -1514,7 +1661,6 @@ local function BuildElements(Target, Container, Tab, Window)
 
 		local h, s, v = (cfg.Default or Theme.AccentGlow):ToHSV()
 
-		-- carré Saturation / Valeur
 		local sv = New("Frame", {
 			Position = UDim2.new(0, 12, 0, 46),
 			Size = UDim2.new(1, -48, 0, 110),
@@ -1549,7 +1695,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		Corner(svCursor, 6)
 		Stroke(svCursor, WHITE, 2, 0)
 
-		-- barre de teinte
 		local hue = New("Frame", {
 			Position = UDim2.new(1, -28, 0, 46),
 			Size = UDim2.new(0, 16, 0, 110),
@@ -1577,7 +1722,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		Corner(hueCursor, 3)
 		Stroke(hueCursor, WHITE, 2, 0)
 
-		-- champ hex
 		local hex = New("TextBox", {
 			Position = UDim2.new(0, 12, 0, 164),
 			Size = UDim2.new(1, -24, 0, 24),
@@ -1643,7 +1787,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- THEME PICKER ---------------------------------------------------
 	function Target:MakeThemePicker(cfg)
 		cfg = cfg or {}
 		local name = cfg.Name or "Thème"
@@ -1712,7 +1855,7 @@ local function BuildElements(Target, Container, Tab, Window)
 				LayoutOrder = i,
 				Parent = holder,
 			})
-			sw:SetAttribute("GLFixed", true) -- ne pas recolorer la pastille
+			sw:SetAttribute("GLFixed", true)
 			Corner(sw, 999)
 			local ring = Stroke(sw, Theme.Border, 1, 0.3)
 			swatches[tname] = { btn = sw, ring = ring }
@@ -1771,7 +1914,6 @@ local function BuildElements(Target, Container, Tab, Window)
 		return Finish(cfg, obj)
 	end
 
-	-- SECTION (repliable) -------------------------------------------
 	function Target:MakeSection(cfg)
 		cfg = type(cfg) == "string" and { Name = cfg } or (cfg or {})
 		local open = cfg.Open ~= false
@@ -1784,7 +1926,7 @@ local function BuildElements(Target, Container, Tab, Window)
 			LayoutOrder = nextOrder(),
 			Parent = Container,
 		})
-		Corner(sec, 12)
+		Corner(sec, S.SectionRadius)
 		Stroke(sec, Theme.AccentDeep, 1, 0.4)
 		local head = New("TextButton", {
 			Size = UDim2.new(1, 0, 0, 34),
@@ -1842,10 +1984,6 @@ local function BuildElements(Target, Container, Tab, Window)
 	end
 end
 
-----------------------------------------------------------------------
--- FENÊTRE
-----------------------------------------------------------------------
-
 local GOLD1 = Color3.fromRGB(255, 214, 102)
 local GOLD2 = Color3.fromRGB(255, 150, 40)
 
@@ -1886,9 +2024,35 @@ end
 
 function Ghostline.new(cfg)
 	cfg = cfg or {}
-	if cfg.Theme or cfg.Mode then
-		Ghostline:SetTheme(cfg.Theme or Ghostline.CurrentTheme, cfg.Mode or Ghostline.CurrentMode)
+	local S = Ghostline.Styles.Ghostline
+	if cfg.Style then
+		local want = string.lower(tostring(cfg.Style))
+		for n, def in pairs(Ghostline.Styles) do
+			if string.lower(n) == want then
+				S = def
+				break
+			end
+		end
 	end
+	local isTop = S.Layout == "Top"
+	local lightReq = cfg.Mode == "light" or cfg.Mode == "clair"
+	if S.Palette and not lightReq then
+		local pal = table.clone(S.Palette)
+		local accent = cfg.Theme and Ghostline.Themes[cfg.Theme]
+		if accent then
+			local ap = buildPalette(accent, "dark")
+			pal.AccentGlow, pal.AccentDeep, pal.AccentSoft = ap.AccentGlow, ap.AccentDeep, ap.AccentSoft
+		end
+		applyPalette(pal)
+		Ghostline._stylePalette = true
+	elseif cfg.Theme or cfg.Mode then
+		Ghostline:SetTheme(cfg.Theme or Ghostline.CurrentTheme, cfg.Mode or Ghostline.CurrentMode)
+		Ghostline._stylePalette = false
+	elseif Ghostline._stylePalette then
+		applyPalette(Ghostline.DefaultPalette)
+		Ghostline._stylePalette = false
+	end
+	Ghostline.ActiveStyle = S
 	local player = Players.LocalPlayer
 	local Window = {
 		Tabs = {},
@@ -1897,16 +2061,17 @@ function Ghostline.new(cfg)
 		Minimized = false,
 		Binding = false,
 		Compact = false,
-		CompactMode = cfg.Compact, -- nil = automatique
+		CompactMode = cfg.Compact,
 		UserScale = 1,
 		ToggleKey = cfg.ToggleKey or Enum.KeyCode.RightShift,
-		DesiredSize = cfg.Size or Vector2.new(640, 430),
+		S = S,
+		DesiredSize = cfg.Size or S.Size or Vector2.new(640, 430),
 		Destroyed = false,
 		_conns = {},
 	}
 	local title = cfg.Name or "Ghostline OS"
 	local subtitle = cfg.Subtitle
-	local HEADER = 48
+	local HEADER = S.Header or 48
 	local startClock = os.clock()
 
 	function Window._track(signal, fn)
@@ -1916,13 +2081,12 @@ function Ghostline.new(cfg)
 	end
 	local track = Window._track
 
-	-- Profil ------------------------------------------------------------
 	local pc = cfg.Profile or {}
 	local Profile = {
 		Avatar = pc.ShowAvatar ~= false,
 		Name = pc.ShowName ~= false,
 		Streamer = pc.Streamer or false,
-		Premium = pc.Premium or false, -- statut premium DU SCRIPT (licence)
+		Premium = pc.Premium or false,
 		PremiumLabel = pc.PremiumLabel or "PREMIUM",
 		FreeLabel = pc.FreeLabel or "FREE",
 		DisplayName = pc.DisplayName or (player and player.DisplayName) or "Invité",
@@ -1954,7 +2118,6 @@ function Ghostline.new(cfg)
 		return Profile.DisplayName
 	end
 
-	-- Flou d'arrière-plan (vrai verre) ---------------------------------
 	local Blur
 	pcall(function()
 		Blur = Lighting:FindFirstChild("GhostlineBlur") or New("BlurEffect", { Name = "GhostlineBlur", Size = 0, Parent = Lighting })
@@ -1967,7 +2130,6 @@ function Ghostline.new(cfg)
 		end
 	end
 
-	-- Racine -------------------------------------------------------------
 	local Root = New("Frame", {
 		Name = "Window",
 		Size = UDim2.fromOffset(640, 430),
@@ -1986,66 +2148,75 @@ function Ghostline.new(cfg)
 
 	local Main = New("Frame", {
 		Size = UDim2.new(1, 0, 1, 0),
-		BackgroundColor3 = WHITE,
-		BackgroundTransparency = 0.1,
+		BackgroundColor3 = S.MainGradient and WHITE or Theme.BackgroundPrimary,
+		BackgroundTransparency = S.MainAlpha,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Active = true,
 		Parent = Holder,
 	})
-	Corner(Main, 20)
-	Gradient(Main, {
-		{ 0, Theme.BackgroundSecondary },
-		{ 0.5, Theme.BackgroundPrimary },
-		{ 1, Theme.GlassTint },
-	}, 135)
+	Corner(Main, S.WindowRadius)
+	if S.MainGradient then
+		Gradient(Main, {
+			{ 0, Theme.BackgroundSecondary },
+			{ 0.5, Theme.BackgroundPrimary },
+			{ 1, Theme.GlassTint },
+		}, 135)
+	end
 
-	local MainStroke = Stroke(Main, WHITE, 1.6, 0.05)
-	local strokeGrad = Gradient(MainStroke, {
-		{ 0, Theme.AccentDeep },
-		{ 0.25, Theme.AccentGlow },
-		{ 0.5, Theme.AccentDeep },
-		{ 0.75, Theme.AccentGlow },
-		{ 1, Theme.AccentDeep },
-	}, 0)
-	TweenService:Create(strokeGrad, TweenInfo.new(6, EASE.Linear, DIR.Out, -1), { Rotation = 360 }):Play()
+	if S.SpinStroke then
+		local MainStroke = Stroke(Main, WHITE, 1.6, 0.05)
+		local strokeGrad = Gradient(MainStroke, {
+			{ 0, Theme.AccentDeep },
+			{ 0.25, Theme.AccentGlow },
+			{ 0.5, Theme.AccentDeep },
+			{ 0.75, Theme.AccentGlow },
+			{ 1, Theme.AccentDeep },
+		}, 0)
+		TweenService:Create(strokeGrad, TweenInfo.new(6, EASE.Linear, DIR.Out, -1), { Rotation = 360 }):Play()
+	else
+		Stroke(Main, Theme.Border, 1, 0.1)
+	end
 
-	local orbs = {
-		{ size = 240, color = Theme.AccentGlow, from = UDim2.new(0, -60, 0, -40), to = UDim2.new(0, 60, 0, 70), t = 7, tr = 0.86 },
-		{ size = 200, color = Theme.AccentDeep, from = UDim2.new(1, -170, 1, -150), to = UDim2.new(1, -280, 1, -220), t = 9, tr = 0.78 },
-		{ size = 150, color = Theme.AccentSoft, from = UDim2.new(0.5, 0, 0, 60), to = UDim2.new(0.62, 50, 0, 150), t = 11, tr = 0.9 },
-	}
-	for _, o in ipairs(orbs) do
-		local orb = New("Frame", {
-			Size = UDim2.fromOffset(o.size, o.size),
-			Position = o.from,
-			BackgroundColor3 = o.color,
-			BackgroundTransparency = o.tr,
+	if S.Orbs then
+		local orbs = {
+			{ size = 240, color = Theme.AccentGlow, from = UDim2.new(0, -60, 0, -40), to = UDim2.new(0, 60, 0, 70), t = 7, tr = 0.86 },
+			{ size = 200, color = Theme.AccentDeep, from = UDim2.new(1, -170, 1, -150), to = UDim2.new(1, -280, 1, -220), t = 9, tr = 0.78 },
+			{ size = 150, color = Theme.AccentSoft, from = UDim2.new(0.5, 0, 0, 60), to = UDim2.new(0.62, 50, 0, 150), t = 11, tr = 0.9 },
+		}
+		for _, o in ipairs(orbs) do
+			local orb = New("Frame", {
+				Size = UDim2.fromOffset(o.size, o.size),
+				Position = o.from,
+				BackgroundColor3 = o.color,
+				BackgroundTransparency = o.tr,
+				BorderSizePixel = 0,
+				Parent = Main,
+			})
+			Corner(orb, 999)
+			TweenService:Create(orb, TweenInfo.new(o.t, EASE.Sine, DIR.InOut, -1, true), { Position = o.to }):Play()
+		end
+	end
+
+	if S.Sheen then
+		local sheen = New("Frame", {
+			Size = UDim2.new(1, 0, 0, 70),
+			BackgroundColor3 = WHITE,
 			BorderSizePixel = 0,
 			Parent = Main,
 		})
-		Corner(orb, 999)
-		TweenService:Create(orb, TweenInfo.new(o.t, EASE.Sine, DIR.InOut, -1, true), { Position = o.to }):Play()
+		Corner(sheen, S.WindowRadius)
+		Gradient(sheen, { { 0, WHITE }, { 1, WHITE } }, 90, { { 0, 0.9 }, { 1, 1 } })
+		New("Frame", {
+			Position = UDim2.new(0, 14, 0, 0),
+			Size = UDim2.new(1, -28, 0, 1),
+			BackgroundColor3 = WHITE,
+			BackgroundTransparency = 0.7,
+			BorderSizePixel = 0,
+			Parent = Main,
+		})
 	end
 
-	local sheen = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 70),
-		BackgroundColor3 = WHITE,
-		BorderSizePixel = 0,
-		Parent = Main,
-	})
-	Corner(sheen, 20)
-	Gradient(sheen, { { 0, WHITE }, { 1, WHITE } }, 90, { { 0, 0.9 }, { 1, 1 } })
-	New("Frame", {
-		Position = UDim2.new(0, 14, 0, 0),
-		Size = UDim2.new(1, -28, 0, 1),
-		BackgroundColor3 = WHITE,
-		BackgroundTransparency = 0.7,
-		BorderSizePixel = 0,
-		Parent = Main,
-	})
-
-	-- En-tête -------------------------------------------------------------
 	local Header = New("Frame", {
 		Size = UDim2.new(1, 0, 0, HEADER),
 		BackgroundTransparency = 1,
@@ -2060,7 +2231,9 @@ function Ghostline.new(cfg)
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = Header,
 	})
-	Gradient(titleLbl, { { 0, Theme.Text }, { 1, Theme.AccentSoft } }, 0)
+	if S.TitleGradient then
+		Gradient(titleLbl, { { 0, Theme.Text }, { 1, Theme.AccentSoft } }, 0)
+	end
 	local subLbl
 	if subtitle then
 		subLbl = TextLabel({
@@ -2107,7 +2280,7 @@ function Ghostline.new(cfg)
 	end
 	local Search = New("TextBox", {
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, IS_TOUCH and -88 or -76, 0.5, 0),
+		Position = UDim2.new(1, (IS_TOUCH and -88 or -76) - (isTop and 46 or 0), 0.5, 0),
 		Size = UDim2.new(0, 150, 0, 28),
 		BackgroundColor3 = Theme.BackgroundPrimary,
 		BackgroundTransparency = 0.3,
@@ -2126,31 +2299,40 @@ function Ghostline.new(cfg)
 	local searchStroke = Stroke(Search, Theme.Border, 1, 0.4)
 	Search.Focused:Connect(function()
 		Tween(searchStroke, 0.25, { Color = Theme.AccentGlow, Transparency = 0 })
-		Tween(Search, 0.35, { Size = UDim2.new(0, math.min(240, Root.Size.X.Offset - 110), 0, 28) }, EASE.Quart)
+		Tween(Search, 0.35, { Size = UDim2.new(0, math.min(240, Root.Size.X.Offset - (isTop and 160 or 110)), 0, 28) }, EASE.Quart)
 	end)
 	Search.FocusLost:Connect(function()
 		Tween(searchStroke, 0.25, { Color = Theme.Border, Transparency = 0.4 })
 		Tween(Search, 0.35, { Size = UDim2.new(0, baseSearchW(), 0, 28) }, EASE.Quart)
 	end)
 
-	local AccentBar = New("Frame", {
-		Size = UDim2.new(1, 0, 0, 2),
-		Position = UDim2.new(0, 0, 0, HEADER),
-		BackgroundColor3 = WHITE,
-		BorderSizePixel = 0,
-		Parent = Main,
-	})
-	local barGrad = Gradient(AccentBar, {
-		{ 0, Theme.BackgroundPrimary },
-		{ 0.35, Theme.AccentDeep },
-		{ 0.5, Theme.AccentGlow },
-		{ 0.65, Theme.AccentDeep },
-		{ 1, Theme.BackgroundPrimary },
-	}, 0)
-	barGrad.Offset = Vector2.new(-0.5, 0)
-	TweenService:Create(barGrad, TweenInfo.new(2.5, EASE.Sine, DIR.InOut, -1, true), { Offset = Vector2.new(0.5, 0) }):Play()
+	if S.AccentBar then
+		local AccentBar = New("Frame", {
+			Size = UDim2.new(1, 0, 0, 2),
+			Position = UDim2.new(0, 0, 0, HEADER),
+			BackgroundColor3 = WHITE,
+			BorderSizePixel = 0,
+			Parent = Main,
+		})
+		local barGrad = Gradient(AccentBar, {
+			{ 0, Theme.BackgroundPrimary },
+			{ 0.35, Theme.AccentDeep },
+			{ 0.5, Theme.AccentGlow },
+			{ 0.65, Theme.AccentDeep },
+			{ 1, Theme.BackgroundPrimary },
+		}, 0)
+		barGrad.Offset = Vector2.new(-0.5, 0)
+		TweenService:Create(barGrad, TweenInfo.new(2.5, EASE.Sine, DIR.InOut, -1, true), { Offset = Vector2.new(0.5, 0) }):Play()
+	else
+		New("Frame", {
+			Size = UDim2.new(1, 0, 0, 1),
+			Position = UDim2.new(0, 0, 0, HEADER + 1),
+			BackgroundColor3 = Theme.Border,
+			BorderSizePixel = 0,
+			Parent = Main,
+		})
+	end
 
-	-- Corps ---------------------------------------------------------------
 	local Body = New("Frame", {
 		Position = UDim2.new(0, 0, 0, HEADER + 2),
 		Size = UDim2.new(1, 0, 1, -(HEADER + 2)),
@@ -2158,34 +2340,37 @@ function Ghostline.new(cfg)
 		Parent = Main,
 	})
 	local Sidebar = New("Frame", {
-		Position = UDim2.new(0, 8, 0, 6),
-		Size = UDim2.new(0, 146, 1, -14),
+		Position = UDim2.new(0, isTop and 10 or 8, 0, 6),
+		Size = isTop and UDim2.new(1, -20, 0, 34) or UDim2.new(0, S.Sidebar, 1, -14),
 		BackgroundColor3 = Theme.BackgroundSecondary,
-		BackgroundTransparency = 0.5,
+		BackgroundTransparency = S.SidebarAlpha,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Parent = Body,
 	})
-	Corner(Sidebar, 14)
+	Corner(Sidebar, S.SidebarRadius)
 	Stroke(Sidebar, Theme.Border, 1, 0.6)
 
 	local TabList = New("ScrollingFrame", {
-		Position = UDim2.new(0, 0, 0, 8),
-		Size = UDim2.new(1, 0, 1, -74),
+		Position = isTop and UDim2.new(0, 4, 0, 0) or UDim2.new(0, 0, 0, 8),
+		Size = isTop and UDim2.new(1, -8, 1, 0) or UDim2.new(1, 0, 1, -74),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 0,
 		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		AutomaticCanvasSize = isTop and Enum.AutomaticSize.X or Enum.AutomaticSize.Y,
+		ScrollingDirection = isTop and Enum.ScrollingDirection.X or Enum.ScrollingDirection.Y,
 		Parent = Sidebar,
 	})
 	New("UIListLayout", {
-		Padding = UDim.new(0, 8),
+		Padding = UDim.new(0, isTop and 6 or 8),
+		FillDirection = isTop and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical,
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		HorizontalAlignment = isTop and Enum.HorizontalAlignment.Left or Enum.HorizontalAlignment.Center,
+		VerticalAlignment = isTop and Enum.VerticalAlignment.Center or Enum.VerticalAlignment.Top,
 		Parent = TabList,
 	})
-	New("UIPadding", { PaddingTop = UDim.new(0, 4), Parent = TabList })
+	New("UIPadding", { PaddingTop = UDim.new(0, isTop and 0 or 4), Parent = TabList })
 
 	local Indicator = New("Frame", {
 		Size = UDim2.new(0, 3, 0, 20),
@@ -2199,13 +2384,12 @@ function Ghostline.new(cfg)
 	Gradient(Indicator, { { 0, Theme.AccentSoft }, { 1, Theme.AccentGlow } }, 90)
 
 	local ContentArea = New("Frame", {
-		Position = UDim2.new(0, 160, 0, 0),
-		Size = UDim2.new(1, -160, 1, 0),
+		Position = isTop and UDim2.new(0, 0, 0, 44) or UDim2.new(0, 160, 0, 0),
+		Size = isTop and UDim2.new(1, 0, 1, -44) or UDim2.new(1, -160, 1, 0),
 		BackgroundTransparency = 1,
 		Parent = Body,
 	})
 
-	-- Avatar (anneau animé) -------------------------------------------------
 	local function BuildAvatar(parent, px, thickness)
 		local holder = New("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -2231,19 +2415,19 @@ function Ghostline.new(cfg)
 		return holder, ring, img
 	end
 
-	-- Carte de profil (bas gauche) ------------------------------------------
 	local ProfileCard = New("TextButton", {
-		Position = UDim2.new(0, 6, 1, -58),
-		Size = UDim2.new(1, -12, 0, 52),
+		AnchorPoint = isTop and Vector2.new(1, 0.5) or Vector2.new(0, 0),
+		Position = isTop and UDim2.new(1, IS_TOUCH and -88 or -76, 0.5, 0) or UDim2.new(0, 6, 1, -58),
+		Size = isTop and UDim2.new(0, 40, 0, 30) or UDim2.new(1, -12, 0, 52),
 		BackgroundColor3 = WHITE,
 		BackgroundTransparency = 0.35,
 		Text = "",
 		AutoButtonColor = false,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		Parent = Sidebar,
+		Parent = isTop and Header or Sidebar,
 	})
-	Corner(ProfileCard, 12)
+	Corner(ProfileCard, isTop and 8 or 12)
 	Gradient(ProfileCard, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundSecondary } }, 25)
 	local cardStroke = Stroke(ProfileCard, Theme.Border, 1, 0.45)
 	ProfileCard.MouseEnter:Connect(function()
@@ -2260,8 +2444,9 @@ function Ghostline.new(cfg)
 		end
 	end)
 
-	local cardHolder, cardRing, cardImg = BuildAvatar(ProfileCard, 36, 2)
-	cardHolder.Position = UDim2.new(0, 26, 0.5, 0)
+	local AV = isTop and 22 or 36
+	local cardHolder, cardRing, cardImg = BuildAvatar(ProfileCard, AV, 2)
+	cardHolder.Position = UDim2.new(0, isTop and 20 or 26, 0.5, 0)
 	local cardName = TextLabel({
 		Size = UDim2.new(1, -58, 0, 16),
 		Position = UDim2.new(0, 52, 0, 9),
@@ -2292,7 +2477,6 @@ function Ghostline.new(cfg)
 		Parent = ProfileCard,
 	})
 
-	-- Panneau de profil agrandi ---------------------------------------------
 	local Dim = New("TextButton", {
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundColor3 = BLACK,
@@ -2314,7 +2498,7 @@ function Ghostline.new(cfg)
 		ZIndex = 21,
 		Parent = Main,
 	})
-	Corner(Panel, 18)
+	Corner(Panel, S.PanelRadius)
 	Gradient(Panel, { { 0, Theme.GlassTint }, { 1, Theme.BackgroundPrimary } }, 135)
 	local panelStroke = Stroke(Panel, WHITE, 1.6, 0.05)
 	local panelGrad = Gradient(panelStroke, ringStops(), 0)
@@ -2557,13 +2741,13 @@ function Ghostline.new(cfg)
 	end
 
 	function refreshProfile(animated)
-		local compact = Window.Compact
+		local compact = Window.Compact or isTop
 		local showA = Profile.Avatar
 		local showN = Profile.Name and not compact
 		local textX = showA and 52 or 12
 		To(cardHolder, animated, 0.45, {
-			Size = showA and UDim2.fromOffset(36, 36) or UDim2.fromOffset(0, 0),
-			Position = UDim2.new(0, compact and 22 or 26, 0.5, 0),
+			Size = showA and UDim2.fromOffset(AV, AV) or UDim2.fromOffset(0, 0),
+			Position = UDim2.new(0, isTop and 20 or (compact and 22 or 26), 0.5, 0),
 		}, EASE.Back)
 		To(cardRing, animated, 0.3, { Transparency = showA and 0 or 1 })
 		To(cardImg, animated, 0.4, { ImageTransparency = (showA and avatarLoaded) and 0 or 1 })
@@ -2607,7 +2791,6 @@ function Ghostline.new(cfg)
 		end
 	end)
 
-	-- ouverture / fermeture du panneau (animation depuis la carte) ---------
 	local panelOpen = false
 	local function cardRect()
 		local s = Scale.Scale
@@ -2714,7 +2897,6 @@ function Ghostline.new(cfg)
 		end
 	end
 
-	-- Recherche globale (palette de commandes) -----------------------------
 	local Results = New("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, HEADER + 6),
@@ -2876,7 +3058,6 @@ function Ghostline.new(cfg)
 		end)
 	end)
 
-	-- Poignée de redimensionnement ------------------------------------------
 	local Resize = New("TextButton", {
 		Size = UDim2.new(0, IS_TOUCH and 30 or 20, 0, IS_TOUCH and 30 or 20),
 		Position = UDim2.new(1, IS_TOUCH and -32 or -22, 1, IS_TOUCH and -32 or -22),
@@ -2910,7 +3091,6 @@ function Ghostline.new(cfg)
 		Window:Relayout(true)
 	end)
 
-	-- Déplacement fluide ------------------------------------------------------
 	local dragStart, startPos
 	MakeDrag(Window, Header, function(pos)
 		if not dragStart then
@@ -2927,23 +3107,24 @@ function Ghostline.new(cfg)
 		startPos = Root.Position
 	end)
 
-	-- Mise en page adaptative (mobile / tablette / PC) ------------------------
 	local function applyTab(t)
-		local compact = Window.Compact
+		local compact = Window.Compact and not isTop
 		t._lbl.Visible = not compact
 		if t._icon then
-			t._icon.Position = compact and UDim2.new(0.5, -9, 0.5, -9) or UDim2.new(0, 12, 0.5, -9)
+			t._icon.Position = compact and UDim2.new(0.5, -9, 0.5, -9) or UDim2.new(0, isTop and 8 or 12, 0.5, -9)
 		end
 		t._letter.Visible = compact and not t._icon
 	end
 
 	function applySidebar(animated)
-		local sb = Window.Compact and 56 or 146
-		To(Sidebar, animated, 0.45, { Size = UDim2.new(0, sb, 1, -14) }, EASE.Quart)
-		To(ContentArea, animated, 0.45, {
-			Position = UDim2.new(0, sb + 14, 0, 0),
-			Size = UDim2.new(1, -(sb + 14), 1, 0),
-		}, EASE.Quart)
+		if not isTop then
+			local sb = Window.Compact and 56 or S.Sidebar
+			To(Sidebar, animated, 0.45, { Size = UDim2.new(0, sb, 1, -14) }, EASE.Quart)
+			To(ContentArea, animated, 0.45, {
+				Position = UDim2.new(0, sb + 14, 0, 0),
+				Size = UDim2.new(1, -(sb + 14), 1, 0),
+			}, EASE.Quart)
+		end
 		for _, t in ipairs(Window.Tabs) do
 			applyTab(t)
 		end
@@ -2975,7 +3156,7 @@ function Ghostline.new(cfg)
 			Window._laidOut = true
 			applySidebar(not first)
 		end
-		local reserve = baseSearchW() + 104
+		local reserve = baseSearchW() + (isTop and 150 or 104)
 		titleLbl.Size = UDim2.new(1, -reserve, 0, subtitle and 22 or HEADER)
 		if subLbl then
 			subLbl.Size = UDim2.new(1, -reserve, 0, 14)
@@ -3011,8 +3192,10 @@ function Ghostline.new(cfg)
 		applyBlur()
 	end
 
-	-- Onglets ------------------------------------------------------------------
 	local function moveIndicator(tab, instant)
+		if isTop or not S.Indicator then
+			return
+		end
 		local y = 8 + 4 + (tab._index - 1) * 44 - TabList.CanvasPosition.Y + 8
 		if not Indicator.Visible then
 			Indicator.Position = UDim2.new(0, 3, 0, y)
@@ -3044,7 +3227,7 @@ function Ghostline.new(cfg)
 		Window.CurrentTab = tab
 		for _, t in ipairs(Window.Tabs) do
 			local active = t == tab
-			Tween(t._btn, 0.3, { BackgroundTransparency = active and 0.5 or 1 })
+			Tween(t._btn, 0.3, { BackgroundTransparency = active and S.TabActiveAlpha or 1 })
 			Tween(t._lbl, 0.3, { TextColor3 = active and Theme.Text or Theme.SubText })
 			Tween(t._letter, 0.3, { TextColor3 = active and Theme.Text or Theme.SubText })
 			if t._icon then
@@ -3068,9 +3251,13 @@ function Ghostline.new(cfg)
 		table.insert(Window.Tabs, Tab)
 		Tab._index = #Window.Tabs
 
+		local tabW = 0
+		if isTop then
+			tabW = TextService:GetTextSize(tabName, 13, Enum.Font.GothamMedium, Vector2.new(400, 30)).X + (tcfg.Icon and 48 or 28)
+		end
 		local btn = New("TextButton", {
-			Size = UDim2.new(1, -16, 0, 36),
-			BackgroundColor3 = Theme.AccentDeep,
+			Size = isTop and UDim2.new(0, tabW, 0, 26) or UDim2.new(1, -16, 0, 36),
+			BackgroundColor3 = S.TabFlat and Theme.GlassTint or Theme.AccentDeep,
 			BackgroundTransparency = 1,
 			Text = "",
 			AutoButtonColor = false,
@@ -3079,13 +3266,15 @@ function Ghostline.new(cfg)
 			ClipsDescendants = true,
 			Parent = TabList,
 		})
-		Corner(btn, 10)
-		Gradient(btn, { { 0, Theme.AccentGlow }, { 1, Theme.AccentDeep } }, 0)
+		Corner(btn, S.TabRadius)
+		if not S.TabFlat then
+			Gradient(btn, { { 0, Theme.AccentGlow }, { 1, Theme.AccentDeep } }, 0)
+		end
 		local hasIcon = tcfg.Icon ~= nil
 		if hasIcon then
 			Tab._icon = New("ImageLabel", {
 				Size = UDim2.new(0, 18, 0, 18),
-				Position = UDim2.new(0, 12, 0.5, -9),
+				Position = UDim2.new(0, isTop and 8 or 12, 0.5, -9),
 				BackgroundTransparency = 1,
 				Image = tcfg.Icon,
 				ImageColor3 = Theme.SubText,
@@ -3093,8 +3282,9 @@ function Ghostline.new(cfg)
 			})
 		end
 		local lbl = TextLabel({
-			Size = UDim2.new(1, hasIcon and -40 or -16, 1, 0),
-			Position = UDim2.new(0, hasIcon and 36 or 14, 0, 0),
+			Size = isTop and UDim2.new(1, hasIcon and -30 or 0, 1, 0) or UDim2.new(1, hasIcon and -40 or -16, 1, 0),
+			Position = isTop and UDim2.new(0, hasIcon and 30 or 0, 0, 0) or UDim2.new(0, hasIcon and 36 or 14, 0, 0),
+			TextXAlignment = isTop and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left,
 			Text = tabName,
 			TextColor3 = Theme.SubText,
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -3163,7 +3353,6 @@ function Ghostline.new(cfg)
 	end
 	Window.CreateTab = Window.MakeTab
 
-	-- Onglet Réglages intégré ---------------------------------------------------
 	function Window:MakeSettingsTab(scfg)
 		scfg = scfg or {}
 		local tab = Window:MakeTab({ Name = scfg.Name or "Réglages", Icon = scfg.Icon })
@@ -3180,7 +3369,7 @@ function Ghostline.new(cfg)
 			end,
 		})
 		ui:MakeSlider({
-			Name = "Opacité du verre", Min = 0, Max = 60, Default = 10, Suffix = "%", Flag = "gl_glass",
+			Name = "Opacité du verre", Min = 0, Max = 60, Default = math.floor(S.MainAlpha * 100 + 0.5), Suffix = "%", Flag = "gl_glass",
 			Callback = function(v)
 				Window:SetGlass(v / 100)
 			end,
@@ -3198,13 +3387,15 @@ function Ghostline.new(cfg)
 				Window:SetBlur(v)
 			end,
 		})
-		ui:MakeToggle({
-			Name = "Barre latérale compacte", Default = Window.Compact, Flag = "gl_compact",
-			Tooltip = "Automatique sur petit écran",
-			Callback = function(v)
-				Window:SetCompact(v)
-			end,
-		})
+		if not isTop then
+			ui:MakeToggle({
+				Name = "Barre latérale compacte", Default = Window.Compact, Flag = "gl_compact",
+				Tooltip = "Automatique sur petit écran",
+				Callback = function(v)
+					Window:SetCompact(v)
+				end,
+			})
+		end
 		ui:MakeKeybind({
 			Name = "Afficher / masquer", Default = Window.ToggleKey,
 			Changed = function(k)
@@ -3296,7 +3487,6 @@ function Ghostline.new(cfg)
 		return tab
 	end
 
-	-- Bouton flottant (mobile / tablette) -----------------------------------------
 	local Launcher, ring
 	if cfg.Launcher == true or (cfg.Launcher == nil and IS_TOUCH) then
 		Launcher = New("TextButton", {
@@ -3314,7 +3504,7 @@ function Ghostline.new(cfg)
 		Stroke(Launcher, Theme.Text, 1.5, 0.6)
 		TextLabel({
 			Size = UDim2.new(1, 0, 1, 0),
-			Text = "G",
+			Text = S.LauncherText or "G",
 			Font = Enum.Font.GothamBold,
 			TextSize = 24,
 			TextXAlignment = Enum.TextXAlignment.Center,
@@ -3365,7 +3555,6 @@ function Ghostline.new(cfg)
 		end)
 	end
 
-	-- Afficher / masquer / réduire / détruire ---------------------------------------
 	function Window:Toggle(state)
 		if state == nil then
 			state = not Window.Visible
@@ -3488,7 +3677,6 @@ function Ghostline.new(cfg)
 	Window:Relayout(false)
 	refreshProfile(false)
 
-	-- animation d'ouverture
 	Tween(Scale, 0.8, { Scale = Window.UserScale }, EASE.Back)
 	applyBlur()
 
@@ -3507,4 +3695,3 @@ function Ghostline:Destroy()
 end
 
 return Ghostline
-
