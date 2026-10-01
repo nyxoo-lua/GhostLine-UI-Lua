@@ -8,14 +8,926 @@ local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local GuiService = game:GetService("GuiService")
+local LocalizationService = game:GetService("LocalizationService")
 
 local Ghostline = {}
 Ghostline.__index = Ghostline
-Ghostline.Version = "2.3.0"
+Ghostline.Version = "2.4.0"
 Ghostline.Flags = {}
 Ghostline.Windows = {}
 Ghostline.ConfigFolder = "Ghostline"
 Ghostline.AnimSpeed = 1
+Ghostline.MaxNotifications = 5
+Ghostline._notifs = {}
+Ghostline.Language = "en"
+Ghostline.Languages = {}
+Ghostline.LanguageNames = {}
+Ghostline.LanguageOrder = {}
+Ghostline._langBound = {}
+Ghostline._langHooks = {}
+
+Ghostline.Languages.en = {
+	search = "Search...",
+	none = "None",
+	no_results = "No results",
+	tab_label = "Tab",
+	dark = "Dark",
+	light = "Light",
+	theme = "Theme",
+	theme_tip = "Color + dark / light mode",
+	settings = "Settings",
+	appearance = "Appearance",
+	interface = "Interface",
+	ui_scale = "Interface size",
+	ui_scale_tip = "Scales the whole interface (useful on tablet and mobile)",
+	glass = "Glass opacity",
+	anim_speed = "Animation speed",
+	blur = "Background blur",
+	compact = "Compact sidebar",
+	compact_tip = "Automatic on small screens",
+	toggle_key = "Show / hide",
+	language = "Language",
+	profile = "Profile",
+	show_avatar = "Show avatar",
+	show_name = "Show username",
+	streamer = "Streamer mode",
+	streamer_long = "Streamer mode (hides username)",
+	configs = "Configurations",
+	cfg_name = "Name",
+	cfg_existing = "Existing",
+	save = "Save",
+	load = "Load",
+	delete = "Delete",
+	export_cfg = "Copy configuration",
+	import_cfg = "Import configuration",
+	import_ph = "Paste configuration here",
+	auto_save = "Auto save",
+	auto_save_tip = "Saves on every change (uses the name above)",
+	cfg_saved = "Configuration saved",
+	cfg_loaded = "Configuration loaded",
+	cfg_deleted = "Configuration deleted",
+	cfg_exported = "Configuration copied to clipboard",
+	cfg_imported = "Configuration imported",
+	failed = "Failed",
+	tips = "Tips",
+	tips_body = "Right-click (or long-press) a setting: reset.\nDouble-click a slider: default value.\nCtrl+K: global search.",
+	perf = "Performance mode",
+	perf_tip = "Disables decorative effects and blur",
+	guest = "Guest",
+	yes = "Yes",
+	no = "No",
+	user_id = "User ID",
+	roblox_premium = "Roblox Premium",
+	account_age = "Account age",
+	days = "%d days",
+	session = "Session",
+	performance = "Performance",
+	privacy = "PRIVACY",
+	profile_hidden = "Profile hidden",
+	err_fs = "File system unavailable",
+	err_missing = "Configuration not found",
+	err_corrupt = "Configuration corrupted",
+	err_theme = "Unknown theme: %s",
+	err_callback = "Callback error: %s",
+	err_lang = "Unknown language: %s",
+	theme_Red = "Red",
+	theme_Pink = "Pink",
+	theme_Purple = "Purple",
+	theme_Blue = "Blue",
+	theme_Green = "Green",
+	theme_Yellow = "Yellow",
+	theme_Black = "Black",
+}
+Ghostline.Languages.fr = {
+	search = "Rechercher...",
+	none = "Aucun",
+	no_results = "Aucun résultat",
+	tab_label = "Onglet",
+	dark = "Sombre",
+	light = "Clair",
+	theme = "Thème",
+	theme_tip = "Couleur + mode sombre / clair",
+	settings = "Réglages",
+	appearance = "Apparence",
+	interface = "Interface",
+	ui_scale = "Taille de l'interface",
+	ui_scale_tip = "Agrandit ou réduit toute l'interface (utile sur tablette et mobile)",
+	glass = "Opacité du verre",
+	anim_speed = "Vitesse des animations",
+	blur = "Flou d'arrière-plan",
+	compact = "Barre latérale compacte",
+	compact_tip = "Automatique sur petit écran",
+	toggle_key = "Afficher / masquer",
+	language = "Langue",
+	profile = "Profil",
+	show_avatar = "Afficher l'avatar",
+	show_name = "Afficher le pseudo",
+	streamer = "Mode streamer",
+	streamer_long = "Mode streamer (masque le pseudo)",
+	configs = "Configurations",
+	cfg_name = "Nom",
+	cfg_existing = "Existantes",
+	save = "Sauvegarder",
+	load = "Charger",
+	delete = "Supprimer",
+	export_cfg = "Copier la configuration",
+	import_cfg = "Importer une configuration",
+	import_ph = "Colle la configuration ici",
+	auto_save = "Sauvegarde automatique",
+	auto_save_tip = "Enregistre à chaque changement (le nom ci-dessus est utilisé)",
+	cfg_saved = "Configuration sauvegardée",
+	cfg_loaded = "Configuration chargée",
+	cfg_deleted = "Configuration supprimée",
+	cfg_exported = "Configuration copiée dans le presse-papiers",
+	cfg_imported = "Configuration importée",
+	failed = "Échec",
+	tips = "Astuces",
+	tips_body = "Clic droit (ou appui long) sur un réglage : remise à zéro.\nDouble-clic sur un slider : valeur par défaut.\nCtrl+K : recherche globale.",
+	perf = "Mode performance",
+	perf_tip = "Désactive les effets décoratifs et le flou",
+	guest = "Invité",
+	yes = "Oui",
+	no = "Non",
+	user_id = "ID utilisateur",
+	roblox_premium = "Roblox Premium",
+	account_age = "Âge du compte",
+	days = "%d jours",
+	session = "Session",
+	performance = "Performance",
+	privacy = "CONFIDENTIALITÉ",
+	profile_hidden = "Profil masqué",
+	err_fs = "Système de fichiers indisponible",
+	err_missing = "Configuration introuvable",
+	err_corrupt = "Configuration corrompue",
+	err_theme = "Thème inconnu : %s",
+	err_callback = "Erreur de callback : %s",
+	err_lang = "Langue inconnue : %s",
+	theme_Red = "Rouge",
+	theme_Pink = "Rose",
+	theme_Purple = "Violet",
+	theme_Blue = "Bleu",
+	theme_Green = "Vert",
+	theme_Yellow = "Jaune",
+	theme_Black = "Noir",
+}
+Ghostline.Languages.de = {
+	search = "Suchen...",
+	none = "Keine",
+	no_results = "Keine Ergebnisse",
+	tab_label = "Tab",
+	dark = "Dunkel",
+	light = "Hell",
+	theme = "Design",
+	theme_tip = "Farbe + dunkler / heller Modus",
+	settings = "Einstellungen",
+	appearance = "Aussehen",
+	interface = "Oberfläche",
+	ui_scale = "Oberflächengröße",
+	ui_scale_tip = "Skaliert die gesamte Oberfläche (nützlich auf Tablet und Handy)",
+	glass = "Glas-Deckkraft",
+	anim_speed = "Animationsgeschwindigkeit",
+	blur = "Hintergrundunschärfe",
+	compact = "Kompakte Seitenleiste",
+	compact_tip = "Automatisch auf kleinen Bildschirmen",
+	toggle_key = "Ein- / ausblenden",
+	language = "Sprache",
+	profile = "Profil",
+	show_avatar = "Avatar anzeigen",
+	show_name = "Benutzernamen anzeigen",
+	streamer = "Streamer-Modus",
+	streamer_long = "Streamer-Modus (versteckt den Namen)",
+	configs = "Konfigurationen",
+	cfg_name = "Name",
+	cfg_existing = "Vorhandene",
+	save = "Speichern",
+	load = "Laden",
+	delete = "Löschen",
+	export_cfg = "Konfiguration kopieren",
+	import_cfg = "Konfiguration importieren",
+	import_ph = "Konfiguration hier einfügen",
+	auto_save = "Automatisch speichern",
+	auto_save_tip = "Speichert bei jeder Änderung (verwendet den obigen Namen)",
+	cfg_saved = "Konfiguration gespeichert",
+	cfg_loaded = "Konfiguration geladen",
+	cfg_deleted = "Konfiguration gelöscht",
+	cfg_exported = "Konfiguration in die Zwischenablage kopiert",
+	cfg_imported = "Konfiguration importiert",
+	failed = "Fehlgeschlagen",
+	tips = "Tipps",
+	tips_body = "Rechtsklick (oder langes Drücken) auf eine Einstellung: zurücksetzen.\nDoppelklick auf einen Slider: Standardwert.\nStrg+K: globale Suche.",
+	perf = "Leistungsmodus",
+	perf_tip = "Deaktiviert Dekoeffekte und Unschärfe",
+	guest = "Gast",
+	yes = "Ja",
+	no = "Nein",
+	user_id = "Benutzer-ID",
+	roblox_premium = "Roblox Premium",
+	account_age = "Kontoalter",
+	days = "%d Tage",
+	session = "Sitzung",
+	performance = "Leistung",
+	privacy = "DATENSCHUTZ",
+	profile_hidden = "Profil ausgeblendet",
+	err_fs = "Dateisystem nicht verfügbar",
+	err_missing = "Konfiguration nicht gefunden",
+	err_corrupt = "Konfiguration beschädigt",
+	err_theme = "Unbekanntes Design: %s",
+	err_callback = "Callback-Fehler: %s",
+	err_lang = "Unbekannte Sprache: %s",
+	theme_Red = "Rot",
+	theme_Pink = "Rosa",
+	theme_Purple = "Violett",
+	theme_Blue = "Blau",
+	theme_Green = "Grün",
+	theme_Yellow = "Gelb",
+	theme_Black = "Schwarz",
+}
+Ghostline.Languages.es = {
+	search = "Buscar...",
+	none = "Ninguno",
+	no_results = "Sin resultados",
+	tab_label = "Pestaña",
+	dark = "Oscuro",
+	light = "Claro",
+	theme = "Tema",
+	theme_tip = "Color + modo oscuro / claro",
+	settings = "Ajustes",
+	appearance = "Apariencia",
+	interface = "Interfaz",
+	ui_scale = "Tamaño de la interfaz",
+	ui_scale_tip = "Escala toda la interfaz (útil en tableta y móvil)",
+	glass = "Opacidad del cristal",
+	anim_speed = "Velocidad de animación",
+	blur = "Desenfoque de fondo",
+	compact = "Barra lateral compacta",
+	compact_tip = "Automático en pantallas pequeñas",
+	toggle_key = "Mostrar / ocultar",
+	language = "Idioma",
+	profile = "Perfil",
+	show_avatar = "Mostrar avatar",
+	show_name = "Mostrar nombre de usuario",
+	streamer = "Modo streamer",
+	streamer_long = "Modo streamer (oculta el nombre)",
+	configs = "Configuraciones",
+	cfg_name = "Nombre",
+	cfg_existing = "Existentes",
+	save = "Guardar",
+	load = "Cargar",
+	delete = "Eliminar",
+	export_cfg = "Copiar configuración",
+	import_cfg = "Importar configuración",
+	import_ph = "Pega la configuración aquí",
+	auto_save = "Guardado automático",
+	auto_save_tip = "Guarda en cada cambio (usa el nombre de arriba)",
+	cfg_saved = "Configuración guardada",
+	cfg_loaded = "Configuración cargada",
+	cfg_deleted = "Configuración eliminada",
+	cfg_exported = "Configuración copiada al portapapeles",
+	cfg_imported = "Configuración importada",
+	failed = "Error",
+	tips = "Consejos",
+	tips_body = "Clic derecho (o pulsación larga) en un ajuste: restablecer.\nDoble clic en un slider: valor por defecto.\nCtrl+K: búsqueda global.",
+	perf = "Modo rendimiento",
+	perf_tip = "Desactiva los efectos decorativos y el desenfoque",
+	guest = "Invitado",
+	yes = "Sí",
+	no = "No",
+	user_id = "ID de usuario",
+	roblox_premium = "Roblox Premium",
+	account_age = "Antigüedad de la cuenta",
+	days = "%d días",
+	session = "Sesión",
+	performance = "Rendimiento",
+	privacy = "PRIVACIDAD",
+	profile_hidden = "Perfil oculto",
+	err_fs = "Sistema de archivos no disponible",
+	err_missing = "Configuración no encontrada",
+	err_corrupt = "Configuración dañada",
+	err_theme = "Tema desconocido: %s",
+	err_callback = "Error de callback: %s",
+	err_lang = "Idioma desconocido: %s",
+	theme_Red = "Rojo",
+	theme_Pink = "Rosa",
+	theme_Purple = "Morado",
+	theme_Blue = "Azul",
+	theme_Green = "Verde",
+	theme_Yellow = "Amarillo",
+	theme_Black = "Negro",
+}
+Ghostline.Languages.it = {
+	search = "Cerca...",
+	none = "Nessuno",
+	no_results = "Nessun risultato",
+	tab_label = "Scheda",
+	dark = "Scuro",
+	light = "Chiaro",
+	theme = "Tema",
+	theme_tip = "Colore + modalità scura / chiara",
+	settings = "Impostazioni",
+	appearance = "Aspetto",
+	interface = "Interfaccia",
+	ui_scale = "Dimensione interfaccia",
+	ui_scale_tip = "Ridimensiona tutta l'interfaccia (utile su tablet e cellulare)",
+	glass = "Opacità del vetro",
+	anim_speed = "Velocità animazioni",
+	blur = "Sfocatura sfondo",
+	compact = "Barra laterale compatta",
+	compact_tip = "Automatico su schermi piccoli",
+	toggle_key = "Mostra / nascondi",
+	language = "Lingua",
+	profile = "Profilo",
+	show_avatar = "Mostra avatar",
+	show_name = "Mostra nome utente",
+	streamer = "Modalità streamer",
+	streamer_long = "Modalità streamer (nasconde il nome)",
+	configs = "Configurazioni",
+	cfg_name = "Nome",
+	cfg_existing = "Esistenti",
+	save = "Salva",
+	load = "Carica",
+	delete = "Elimina",
+	export_cfg = "Copia configurazione",
+	import_cfg = "Importa configurazione",
+	import_ph = "Incolla la configurazione qui",
+	auto_save = "Salvataggio automatico",
+	auto_save_tip = "Salva a ogni modifica (usa il nome sopra)",
+	cfg_saved = "Configurazione salvata",
+	cfg_loaded = "Configurazione caricata",
+	cfg_deleted = "Configurazione eliminata",
+	cfg_exported = "Configurazione copiata negli appunti",
+	cfg_imported = "Configurazione importata",
+	failed = "Errore",
+	tips = "Suggerimenti",
+	tips_body = "Clic destro (o pressione lunga) su un'impostazione: ripristina.\nDoppio clic su uno slider: valore predefinito.\nCtrl+K: ricerca globale.",
+	perf = "Modalità prestazioni",
+	perf_tip = "Disattiva effetti decorativi e sfocatura",
+	guest = "Ospite",
+	yes = "Sì",
+	no = "No",
+	user_id = "ID utente",
+	roblox_premium = "Roblox Premium",
+	account_age = "Età dell'account",
+	days = "%d giorni",
+	session = "Sessione",
+	performance = "Prestazioni",
+	privacy = "PRIVACY",
+	profile_hidden = "Profilo nascosto",
+	err_fs = "File system non disponibile",
+	err_missing = "Configurazione non trovata",
+	err_corrupt = "Configurazione danneggiata",
+	err_theme = "Tema sconosciuto: %s",
+	err_callback = "Errore callback: %s",
+	err_lang = "Lingua sconosciuta: %s",
+	theme_Red = "Rosso",
+	theme_Pink = "Rosa",
+	theme_Purple = "Viola",
+	theme_Blue = "Blu",
+	theme_Green = "Verde",
+	theme_Yellow = "Giallo",
+	theme_Black = "Nero",
+}
+Ghostline.Languages.pt = {
+	search = "Pesquisar...",
+	none = "Nenhum",
+	no_results = "Sem resultados",
+	tab_label = "Aba",
+	dark = "Escuro",
+	light = "Claro",
+	theme = "Tema",
+	theme_tip = "Cor + modo escuro / claro",
+	settings = "Configurações",
+	appearance = "Aparência",
+	interface = "Interface",
+	ui_scale = "Tamanho da interface",
+	ui_scale_tip = "Redimensiona toda a interface (útil em tablet e celular)",
+	glass = "Opacidade do vidro",
+	anim_speed = "Velocidade das animações",
+	blur = "Desfoque de fundo",
+	compact = "Barra lateral compacta",
+	compact_tip = "Automático em telas pequenas",
+	toggle_key = "Mostrar / ocultar",
+	language = "Idioma",
+	profile = "Perfil",
+	show_avatar = "Mostrar avatar",
+	show_name = "Mostrar nome de usuário",
+	streamer = "Modo streamer",
+	streamer_long = "Modo streamer (oculta o nome)",
+	configs = "Configurações",
+	cfg_name = "Nome",
+	cfg_existing = "Existentes",
+	save = "Salvar",
+	load = "Carregar",
+	delete = "Excluir",
+	export_cfg = "Copiar configuração",
+	import_cfg = "Importar configuração",
+	import_ph = "Cole a configuração aqui",
+	auto_save = "Salvamento automático",
+	auto_save_tip = "Salva a cada alteração (usa o nome acima)",
+	cfg_saved = "Configuração salva",
+	cfg_loaded = "Configuração carregada",
+	cfg_deleted = "Configuração excluída",
+	cfg_exported = "Configuração copiada para a área de transferência",
+	cfg_imported = "Configuração importada",
+	failed = "Falhou",
+	tips = "Dicas",
+	tips_body = "Clique direito (ou toque longo) em uma opção: redefinir.\nDuplo clique em um slider: valor padrão.\nCtrl+K: pesquisa global.",
+	perf = "Modo desempenho",
+	perf_tip = "Desativa efeitos decorativos e desfoque",
+	guest = "Convidado",
+	yes = "Sim",
+	no = "Não",
+	user_id = "ID do usuário",
+	roblox_premium = "Roblox Premium",
+	account_age = "Idade da conta",
+	days = "%d dias",
+	session = "Sessão",
+	performance = "Desempenho",
+	privacy = "PRIVACIDADE",
+	profile_hidden = "Perfil oculto",
+	err_fs = "Sistema de arquivos indisponível",
+	err_missing = "Configuração não encontrada",
+	err_corrupt = "Configuração corrompida",
+	err_theme = "Tema desconhecido: %s",
+	err_callback = "Erro de callback: %s",
+	err_lang = "Idioma desconhecido: %s",
+	theme_Red = "Vermelho",
+	theme_Pink = "Rosa",
+	theme_Purple = "Roxo",
+	theme_Blue = "Azul",
+	theme_Green = "Verde",
+	theme_Yellow = "Amarelo",
+	theme_Black = "Preto",
+}
+Ghostline.Languages.nl = {
+	search = "Zoeken...",
+	none = "Geen",
+	no_results = "Geen resultaten",
+	tab_label = "Tabblad",
+	dark = "Donker",
+	light = "Licht",
+	theme = "Thema",
+	theme_tip = "Kleur + donkere / lichte modus",
+	settings = "Instellingen",
+	appearance = "Uiterlijk",
+	interface = "Interface",
+	ui_scale = "Interfacegrootte",
+	ui_scale_tip = "Schaalt de hele interface (handig op tablet en mobiel)",
+	glass = "Glasdekking",
+	anim_speed = "Animatiesnelheid",
+	blur = "Achtergrondvervaging",
+	compact = "Compacte zijbalk",
+	compact_tip = "Automatisch op kleine schermen",
+	toggle_key = "Tonen / verbergen",
+	language = "Taal",
+	profile = "Profiel",
+	show_avatar = "Avatar tonen",
+	show_name = "Gebruikersnaam tonen",
+	streamer = "Streamermodus",
+	streamer_long = "Streamermodus (verbergt de naam)",
+	configs = "Configuraties",
+	cfg_name = "Naam",
+	cfg_existing = "Bestaande",
+	save = "Opslaan",
+	load = "Laden",
+	delete = "Verwijderen",
+	export_cfg = "Configuratie kopiëren",
+	import_cfg = "Configuratie importeren",
+	import_ph = "Plak de configuratie hier",
+	auto_save = "Automatisch opslaan",
+	auto_save_tip = "Slaat bij elke wijziging op (gebruikt de naam hierboven)",
+	cfg_saved = "Configuratie opgeslagen",
+	cfg_loaded = "Configuratie geladen",
+	cfg_deleted = "Configuratie verwijderd",
+	cfg_exported = "Configuratie naar klembord gekopieerd",
+	cfg_imported = "Configuratie geïmporteerd",
+	failed = "Mislukt",
+	tips = "Tips",
+	tips_body = "Rechtsklik (of lang indrukken) op een instelling: resetten.\nDubbelklik op een slider: standaardwaarde.\nCtrl+K: globaal zoeken.",
+	perf = "Prestatiemodus",
+	perf_tip = "Schakelt decoratieve effecten en vervaging uit",
+	guest = "Gast",
+	yes = "Ja",
+	no = "Nee",
+	user_id = "Gebruikers-ID",
+	roblox_premium = "Roblox Premium",
+	account_age = "Accountleeftijd",
+	days = "%d dagen",
+	session = "Sessie",
+	performance = "Prestaties",
+	privacy = "PRIVACY",
+	profile_hidden = "Profiel verborgen",
+	err_fs = "Bestandssysteem niet beschikbaar",
+	err_missing = "Configuratie niet gevonden",
+	err_corrupt = "Configuratie beschadigd",
+	err_theme = "Onbekend thema: %s",
+	err_callback = "Callback-fout: %s",
+	err_lang = "Onbekende taal: %s",
+	theme_Red = "Rood",
+	theme_Pink = "Roze",
+	theme_Purple = "Paars",
+	theme_Blue = "Blauw",
+	theme_Green = "Groen",
+	theme_Yellow = "Geel",
+	theme_Black = "Zwart",
+}
+Ghostline.Languages.pl = {
+	search = "Szukaj...",
+	none = "Brak",
+	no_results = "Brak wyników",
+	tab_label = "Karta",
+	dark = "Ciemny",
+	light = "Jasny",
+	theme = "Motyw",
+	theme_tip = "Kolor + tryb ciemny / jasny",
+	settings = "Ustawienia",
+	appearance = "Wygląd",
+	interface = "Interfejs",
+	ui_scale = "Rozmiar interfejsu",
+	ui_scale_tip = "Skaluje cały interfejs (przydatne na tablecie i telefonie)",
+	glass = "Przezroczystość szkła",
+	anim_speed = "Szybkość animacji",
+	blur = "Rozmycie tła",
+	compact = "Kompaktowy pasek boczny",
+	compact_tip = "Automatycznie na małych ekranach",
+	toggle_key = "Pokaż / ukryj",
+	language = "Język",
+	profile = "Profil",
+	show_avatar = "Pokaż awatar",
+	show_name = "Pokaż nazwę użytkownika",
+	streamer = "Tryb streamera",
+	streamer_long = "Tryb streamera (ukrywa nazwę)",
+	configs = "Konfiguracje",
+	cfg_name = "Nazwa",
+	cfg_existing = "Istniejące",
+	save = "Zapisz",
+	load = "Wczytaj",
+	delete = "Usuń",
+	export_cfg = "Kopiuj konfigurację",
+	import_cfg = "Importuj konfigurację",
+	import_ph = "Wklej konfigurację tutaj",
+	auto_save = "Autozapis",
+	auto_save_tip = "Zapisuje przy każdej zmianie (używa nazwy powyżej)",
+	cfg_saved = "Konfiguracja zapisana",
+	cfg_loaded = "Konfiguracja wczytana",
+	cfg_deleted = "Konfiguracja usunięta",
+	cfg_exported = "Konfiguracja skopiowana do schowka",
+	cfg_imported = "Konfiguracja zaimportowana",
+	failed = "Niepowodzenie",
+	tips = "Wskazówki",
+	tips_body = "Prawy przycisk (lub długie przytrzymanie) na ustawieniu: reset.\nDwukrotne kliknięcie suwaka: wartość domyślna.\nCtrl+K: wyszukiwanie globalne.",
+	perf = "Tryb wydajności",
+	perf_tip = "Wyłącza efekty dekoracyjne i rozmycie",
+	guest = "Gość",
+	yes = "Tak",
+	no = "Nie",
+	user_id = "ID użytkownika",
+	roblox_premium = "Roblox Premium",
+	account_age = "Wiek konta",
+	days = "%d dni",
+	session = "Sesja",
+	performance = "Wydajność",
+	privacy = "PRYWATNOŚĆ",
+	profile_hidden = "Profil ukryty",
+	err_fs = "System plików niedostępny",
+	err_missing = "Nie znaleziono konfiguracji",
+	err_corrupt = "Konfiguracja uszkodzona",
+	err_theme = "Nieznany motyw: %s",
+	err_callback = "Błąd callbacku: %s",
+	err_lang = "Nieznany język: %s",
+	theme_Red = "Czerwony",
+	theme_Pink = "Różowy",
+	theme_Purple = "Fioletowy",
+	theme_Blue = "Niebieski",
+	theme_Green = "Zielony",
+	theme_Yellow = "Żółty",
+	theme_Black = "Czarny",
+}
+Ghostline.Languages.tr = {
+	search = "Ara...",
+	none = "Yok",
+	no_results = "Sonuç yok",
+	tab_label = "Sekme",
+	dark = "Koyu",
+	light = "Açık",
+	theme = "Tema",
+	theme_tip = "Renk + koyu / açık mod",
+	settings = "Ayarlar",
+	appearance = "Görünüm",
+	interface = "Arayüz",
+	ui_scale = "Arayüz boyutu",
+	ui_scale_tip = "Tüm arayüzü ölçekler (tablet ve telefonda kullanışlı)",
+	glass = "Cam opaklığı",
+	anim_speed = "Animasyon hızı",
+	blur = "Arka plan bulanıklığı",
+	compact = "Kompakt kenar çubuğu",
+	compact_tip = "Küçük ekranlarda otomatik",
+	toggle_key = "Göster / gizle",
+	language = "Dil",
+	profile = "Profil",
+	show_avatar = "Avatarı göster",
+	show_name = "Kullanıcı adını göster",
+	streamer = "Yayıncı modu",
+	streamer_long = "Yayıncı modu (adı gizler)",
+	configs = "Yapılandırmalar",
+	cfg_name = "Ad",
+	cfg_existing = "Mevcut",
+	save = "Kaydet",
+	load = "Yükle",
+	delete = "Sil",
+	export_cfg = "Yapılandırmayı kopyala",
+	import_cfg = "Yapılandırmayı içe aktar",
+	import_ph = "Yapılandırmayı buraya yapıştır",
+	auto_save = "Otomatik kaydet",
+	auto_save_tip = "Her değişiklikte kaydeder (yukarıdaki adı kullanır)",
+	cfg_saved = "Yapılandırma kaydedildi",
+	cfg_loaded = "Yapılandırma yüklendi",
+	cfg_deleted = "Yapılandırma silindi",
+	cfg_exported = "Yapılandırma panoya kopyalandı",
+	cfg_imported = "Yapılandırma içe aktarıldı",
+	failed = "Başarısız",
+	tips = "İpuçları",
+	tips_body = "Bir ayara sağ tık (veya uzun basış): sıfırla.\nKaydırıcıya çift tık: varsayılan değer.\nCtrl+K: genel arama.",
+	perf = "Performans modu",
+	perf_tip = "Dekoratif efektleri ve bulanıklığı kapatır",
+	guest = "Misafir",
+	yes = "Evet",
+	no = "Hayır",
+	user_id = "Kullanıcı kimliği",
+	roblox_premium = "Roblox Premium",
+	account_age = "Hesap yaşı",
+	days = "%d gün",
+	session = "Oturum",
+	performance = "Performans",
+	privacy = "GİZLİLİK",
+	profile_hidden = "Profil gizli",
+	err_fs = "Dosya sistemi kullanılamıyor",
+	err_missing = "Yapılandırma bulunamadı",
+	err_corrupt = "Yapılandırma bozuk",
+	err_theme = "Bilinmeyen tema: %s",
+	err_callback = "Callback hatası: %s",
+	err_lang = "Bilinmeyen dil: %s",
+	theme_Red = "Kırmızı",
+	theme_Pink = "Pembe",
+	theme_Purple = "Mor",
+	theme_Blue = "Mavi",
+	theme_Green = "Yeşil",
+	theme_Yellow = "Sarı",
+	theme_Black = "Siyah",
+}
+
+Ghostline.LanguageNames = {
+	en = "English",
+	fr = "Français",
+	de = "Deutsch",
+	es = "Español",
+	it = "Italiano",
+	pt = "Português",
+	nl = "Nederlands",
+	pl = "Polski",
+	tr = "Türkçe",
+}
+Ghostline.LanguageOrder = { "en", "fr", "de", "es", "it", "pt", "nl", "pl", "tr" }
+Ghostline.LanguageAliases = {
+	english = "en", french = "fr", francais = "fr", ["français"] = "fr", german = "de", deutsch = "de",
+	spanish = "es", espanol = "es", ["español"] = "es", italian = "it", italiano = "it",
+	portuguese = "pt", portugues = "pt", ["português"] = "pt", dutch = "nl", nederlands = "nl",
+	polish = "pl", polski = "pl", turkish = "tr", turkce = "tr", ["türkçe"] = "tr",
+}
+Ghostline.ThemeAliases = {
+	["rouge"] = "Red",
+	["rot"] = "Red",
+	["rojo"] = "Red",
+	["rosso"] = "Red",
+	["vermelho"] = "Red",
+	["rood"] = "Red",
+	["czerwony"] = "Red",
+	["kirmizi"] = "Red",
+	["kırmızı"] = "Red",
+	["rose"] = "Pink",
+	["rosa"] = "Pink",
+	["roze"] = "Pink",
+	["różowy"] = "Pink",
+	["rozowy"] = "Pink",
+	["pembe"] = "Pink",
+	["violet"] = "Purple",
+	["violett"] = "Purple",
+	["morado"] = "Purple",
+	["viola"] = "Purple",
+	["roxo"] = "Purple",
+	["paars"] = "Purple",
+	["fioletowy"] = "Purple",
+	["mor"] = "Purple",
+	["bleu"] = "Blue",
+	["blau"] = "Blue",
+	["azul"] = "Blue",
+	["blu"] = "Blue",
+	["blauw"] = "Blue",
+	["niebieski"] = "Blue",
+	["mavi"] = "Blue",
+	["vert"] = "Green",
+	["grün"] = "Green",
+	["grun"] = "Green",
+	["gruen"] = "Green",
+	["verde"] = "Green",
+	["groen"] = "Green",
+	["zielony"] = "Green",
+	["yesil"] = "Green",
+	["yeşil"] = "Green",
+	["jaune"] = "Yellow",
+	["gelb"] = "Yellow",
+	["amarillo"] = "Yellow",
+	["giallo"] = "Yellow",
+	["amarelo"] = "Yellow",
+	["geel"] = "Yellow",
+	["żółty"] = "Yellow",
+	["zolty"] = "Yellow",
+	["sari"] = "Yellow",
+	["sarı"] = "Yellow",
+	["noir"] = "Black",
+	["schwarz"] = "Black",
+	["negro"] = "Black",
+	["nero"] = "Black",
+	["preto"] = "Black",
+	["zwart"] = "Black",
+	["czarny"] = "Black",
+	["siyah"] = "Black",
+}
+Ghostline.ModeAliases = {
+	dark = "dark", sombre = "dark", dunkel = "dark", oscuro = "dark", scuro = "dark", escuro = "dark",
+	donker = "dark", ciemny = "dark", koyu = "dark",
+	light = "light", clair = "light", hell = "light", claro = "light", chiaro = "light", licht = "light",
+	jasny = "light", acik = "light", ["açık"] = "light",
+}
+
+local function L(key, ...)
+	local lang = Ghostline.Languages[Ghostline.Language]
+	local str = (lang and lang[key]) or Ghostline.Languages.en[key] or key
+	if select("#", ...) > 0 then
+		local ok, out = pcall(string.format, str, ...)
+		if ok then
+			return out
+		end
+	end
+	return str
+end
+Ghostline.L = L
+
+function Ghostline.Loc(key, ...)
+	return { __loc = true, Key = key, Args = { ... } }
+end
+local Loc = Ghostline.Loc
+
+local function isSpec(v)
+	if type(v) ~= "table" then
+		return false
+	end
+	if v.__loc then
+		return true
+	end
+	for code in pairs(Ghostline.Languages) do
+		if v[code] ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
+local function resolveText(v)
+	if type(v) ~= "table" then
+		return v
+	end
+	if v.__loc then
+		return L(v.Key, table.unpack(v.Args))
+	end
+	return v[Ghostline.Language] or v.en or select(2, next(v)) or ""
+end
+
+local function resolveLang(code)
+	if code == nil then
+		return nil
+	end
+	local low = string.lower(tostring(code))
+	if low == "auto" then
+		local ok, id = pcall(function()
+			return LocalizationService.RobloxLocaleId
+		end)
+		low = ok and string.lower(tostring(id)) or "en"
+	end
+	if Ghostline.Languages[low] then
+		return low
+	end
+	if Ghostline.LanguageAliases[low] then
+		return Ghostline.LanguageAliases[low]
+	end
+	for c, n in pairs(Ghostline.LanguageNames) do
+		if string.lower(n) == low then
+			return c
+		end
+	end
+	local short = string.sub(low, 1, 2)
+	if Ghostline.Languages[short] then
+		return short
+	end
+	return nil
+end
+
+local function resolveTheme(name)
+	if name == nil then
+		return nil
+	end
+	if Ghostline.Themes[name] then
+		return name
+	end
+	local low = string.lower(tostring(name))
+	for k in pairs(Ghostline.Themes) do
+		if string.lower(k) == low then
+			return k
+		end
+	end
+	return Ghostline.ThemeAliases[low]
+end
+
+local function resolveMode(m)
+	if m == nil then
+		return nil
+	end
+	return Ghostline.ModeAliases[string.lower(tostring(m))]
+end
+
+local function bindFn(inst, fn)
+	table.insert(Ghostline._langBound, { inst = inst, fn = fn })
+	fn()
+end
+
+local function bindText(inst, prop, spec, upper)
+	bindFn(inst, function()
+		local t = resolveText(spec)
+		inst[prop] = upper and string.upper(t) or t
+	end)
+end
+
+function Ghostline:SetLanguage(code)
+	local resolved = resolveLang(code)
+	if not resolved then
+		return false, L("err_lang", tostring(code))
+	end
+	Ghostline.Language = resolved
+	local list = Ghostline._langBound
+	for i = #list, 1, -1 do
+		local e = list[i]
+		if e.inst.Parent == nil then
+			table.remove(list, i)
+		else
+			pcall(e.fn)
+		end
+	end
+	for i = #Ghostline._langHooks, 1, -1 do
+		local ok, keep = pcall(Ghostline._langHooks[i], resolved)
+		if not ok or keep == false then
+			table.remove(Ghostline._langHooks, i)
+		end
+	end
+	return true
+end
+
+function Ghostline:OnLanguageChanged(fn)
+	table.insert(Ghostline._langHooks, fn)
+	return {
+		Disconnect = function()
+			local i = table.find(Ghostline._langHooks, fn)
+			if i then
+				table.remove(Ghostline._langHooks, i)
+			end
+		end,
+	}
+end
+
+function Ghostline:AddLanguage(code, name, dict)
+	code = string.lower(code)
+	Ghostline.Languages[code] = dict or {}
+	Ghostline.LanguageNames[code] = name or code
+	if not table.find(Ghostline.LanguageOrder, code) then
+		table.insert(Ghostline.LanguageOrder, code)
+	end
+end
+
+function Ghostline:GetLanguages()
+	local list = {}
+	for _, code in ipairs(Ghostline.LanguageOrder) do
+		table.insert(list, { Code = code, Name = Ghostline.LanguageNames[code] or code })
+	end
+	return list
+end
+
+function Ghostline:Translate(key, ...)
+	return L(key, ...)
+end
+
+function Ghostline:ThemeLabel(key)
+	local k = "theme_" .. tostring(key)
+	local lang = Ghostline.Languages[Ghostline.Language]
+	return (lang and lang[k]) or Ghostline.Languages.en[k] or tostring(key)
+end
 
 Ghostline.Theme = {
 	BackgroundPrimary = Color3.fromRGB(14, 6, 8),
@@ -259,7 +1171,7 @@ local function safe(cb, ...)
 	end
 	local ok, err = pcall(cb, ...)
 	if not ok then
-		warn("[Ghostline] Erreur callback : " .. tostring(err))
+		warn("[Ghostline] " .. L("err_callback", tostring(err)))
 	end
 end
 
@@ -537,11 +1449,17 @@ function Ghostline:Notify(cfg)
 	Tween(bar, duration, { Size = UDim2.new(0, 0, 1, 0) }, EASE.Linear)
 
 	local closed = false
+	local list = Ghostline._notifs
+	local entry
 	local function close()
 		if closed then
 			return
 		end
 		closed = true
+		local at = table.find(list, entry)
+		if at then
+			table.remove(list, at)
+		end
 		Tween(Card, 0.45, { Position = UDim2.new(1, 80, 0, 0), BackgroundTransparency = 1 }, EASE.Exponential, DIR.In)
 		Tween(stroke, 0.3, { Transparency = 1 })
 		task.wait(0.3)
@@ -549,7 +1467,16 @@ function Ghostline:Notify(cfg)
 		task.wait(0.32)
 		Wrapper:Destroy()
 	end
+	entry = function()
+		task.spawn(close)
+	end
+	table.insert(list, entry)
+	while #list > Ghostline.MaxNotifications do
+		local oldest = table.remove(list, 1)
+		oldest()
+	end
 	Card.MouseButton1Click:Connect(function()
+		safe(cfg.Callback)
 		task.spawn(close)
 	end)
 	task.delay(duration, function()
@@ -589,7 +1516,7 @@ end
 
 function Ghostline:SaveConfig(name)
 	if not hasFS() then
-		return false, "Système de fichiers indisponible"
+		return false, L("err_fs")
 	end
 	name = name or "default"
 	local data = {}
@@ -602,18 +1529,18 @@ end
 
 function Ghostline:LoadConfig(name)
 	if not hasFS() then
-		return false, "Système de fichiers indisponible"
+		return false, L("err_fs")
 	end
 	name = name or "default"
 	local path = Ghostline.ConfigFolder .. "/" .. name .. ".json"
 	if not isfile(path) then
-		return false, "Config introuvable"
+		return false, L("err_missing")
 	end
 	local ok, data = pcall(function()
 		return HttpService:JSONDecode(readfile(path))
 	end)
 	if not ok then
-		return false, "Config corrompue"
+		return false, L("err_corrupt")
 	end
 	for flag, value in pairs(data) do
 		local obj = Ghostline.Flags[flag]
@@ -627,16 +1554,16 @@ function Ghostline:LoadConfig(name)
 end
 
 Ghostline.Themes = {
-	Rouge = Color3.fromRGB(255, 45, 85),
-	Rose = Color3.fromRGB(255, 92, 170),
-	Violet = Color3.fromRGB(160, 92, 255),
-	Bleu = Color3.fromRGB(56, 140, 255),
-	Vert = Color3.fromRGB(46, 214, 120),
-	Jaune = Color3.fromRGB(255, 200, 40),
-	Noir = Color3.fromRGB(34, 34, 42),
+	Red = Color3.fromRGB(255, 45, 85),
+	Pink = Color3.fromRGB(255, 92, 170),
+	Purple = Color3.fromRGB(160, 92, 255),
+	Blue = Color3.fromRGB(56, 140, 255),
+	Green = Color3.fromRGB(46, 214, 120),
+	Yellow = Color3.fromRGB(255, 200, 40),
+	Black = Color3.fromRGB(34, 34, 42),
 }
-Ghostline.ThemeOrder = { "Rouge", "Rose", "Violet", "Bleu", "Vert", "Jaune", "Noir" }
-Ghostline.CurrentTheme = "Rouge"
+Ghostline.ThemeOrder = { "Red", "Pink", "Purple", "Blue", "Green", "Yellow", "Black" }
+Ghostline.CurrentTheme = "Red"
 Ghostline.CurrentMode = "dark"
 Ghostline._themeHooks = {}
 Ghostline._themeGen = 0
@@ -759,18 +1686,13 @@ function Ghostline:AddTheme(name, color)
 end
 
 function Ghostline:SetTheme(name, mode)
-	name = name or Ghostline.CurrentTheme
-	local base = Ghostline.Themes[name]
+	local requested = name
+	name = resolveTheme(name or Ghostline.CurrentTheme)
+	local base = name and Ghostline.Themes[name]
 	if not base then
-		return false, "Thème inconnu : " .. tostring(name)
+		return false, L("err_theme", tostring(requested))
 	end
-	if mode == "light" or mode == "clair" then
-		mode = "light"
-	elseif mode == "dark" or mode == "sombre" then
-		mode = "dark"
-	else
-		mode = Ghostline.CurrentMode
-	end
+	mode = resolveMode(mode) or Ghostline.CurrentMode
 	Ghostline.CurrentTheme, Ghostline.CurrentMode = name, mode
 	applyPalette(buildPalette(base, mode))
 	for i = #Ghostline._themeHooks, 1, -1 do
@@ -788,6 +1710,63 @@ end
 
 function Ghostline:ToggleMode()
 	return Ghostline:SetMode(Ghostline.CurrentMode == "dark" and "light" or "dark")
+end
+
+function Ghostline:ExportConfig()
+	local data = {}
+	for flag, obj in pairs(Ghostline.Flags) do
+		data[flag] = encode(obj)
+	end
+	return HttpService:JSONEncode(data)
+end
+
+function Ghostline:ImportConfig(json)
+	local ok, data = pcall(function()
+		return HttpService:JSONDecode(json)
+	end)
+	if not ok or type(data) ~= "table" then
+		return false, L("err_corrupt")
+	end
+	for flag, value in pairs(data) do
+		local obj = Ghostline.Flags[flag]
+		if obj and obj.Set then
+			Ghostline._loading = true
+			pcall(obj.Set, obj, decode(obj, value))
+			Ghostline._loading = false
+		end
+	end
+	return true
+end
+
+function Ghostline:DeleteConfig(name)
+	if type(delfile) ~= "function" or not hasFS() then
+		return false, L("err_fs")
+	end
+	local path = Ghostline.ConfigFolder .. "/" .. (name or "default") .. ".json"
+	if not isfile(path) then
+		return false, L("err_missing")
+	end
+	return pcall(delfile, path)
+end
+
+function Ghostline:GetFlag(flag)
+	local obj = Ghostline.Flags[flag]
+	if not obj then
+		return nil
+	end
+	if obj.Get then
+		return obj:Get()
+	end
+	return obj.Value
+end
+
+function Ghostline:SetFlag(flag, value, silent)
+	local obj = Ghostline.Flags[flag]
+	if obj and obj.Set then
+		obj:Set(value, silent)
+		return true
+	end
+	return false
 end
 
 function Ghostline:EnableAutoSave(name, delay)
@@ -898,6 +1877,43 @@ local function BuildElements(Target, Container, Tab, Window)
 				obj.Instance:Destroy()
 			end
 		end
+		function obj:SetVisible(v)
+			if obj.Instance then
+				obj.Instance.Visible = v and true or false
+			end
+		end
+		function obj:SetLocked(v)
+			v = v and true or false
+			obj._locked = v
+			local inst = obj.Instance
+			if not inst then
+				return
+			end
+			local shield = inst:FindFirstChild("GL_Lock")
+			if v and not shield then
+				shield = New("TextButton", {
+					Name = "GL_Lock",
+					Size = UDim2.new(1, 0, 1, 0),
+					BackgroundColor3 = Theme.BackgroundPrimary,
+					BackgroundTransparency = 0.45,
+					Text = "",
+					AutoButtonColor = false,
+					BorderSizePixel = 0,
+					Active = true,
+					ZIndex = 20,
+					Parent = inst,
+				})
+				Corner(shield, S.RowRadius)
+			elseif shield then
+				shield.Visible = v
+			end
+		end
+		if cfg.Locked then
+			obj:SetLocked(true)
+		end
+		if cfg.Visible == false then
+			obj:SetVisible(false)
+		end
 
 		if row and cfg.Tooltip and not IS_TOUCH then
 			row.MouseEnter:Connect(function()
@@ -914,6 +1930,9 @@ local function BuildElements(Target, Container, Tab, Window)
 				default = table.clone(default)
 			end
 			local function doReset()
+				if obj._locked then
+					return
+				end
 				local v = default
 				if type(v) == "table" then
 					v = table.clone(v)
@@ -1451,11 +2470,12 @@ local function BuildElements(Target, Container, Tab, Window)
 		end
 		local function updateLabel()
 			if multi then
-				valueLbl.Text = #obj.Value == 0 and "Aucun" or table.concat(obj.Value, ", ")
+				valueLbl.Text = #obj.Value == 0 and L("none") or table.concat(obj.Value, ", ")
 			else
-				valueLbl.Text = obj.Value ~= nil and tostring(obj.Value) or "Aucun"
+				valueLbl.Text = obj.Value ~= nil and tostring(obj.Value) or L("none")
 			end
 		end
+		table.insert(Ghostline._langBound, { inst = valueLbl, fn = updateLabel })
 		local function paint()
 			for opt, b in pairs(buttons) do
 				local sel = isSelected(opt)
@@ -1789,7 +2809,7 @@ local function BuildElements(Target, Container, Tab, Window)
 
 	function Target:MakeThemePicker(cfg)
 		cfg = cfg or {}
-		local name = cfg.Name or "Thème"
+		local name = cfg.Name or L("theme")
 		local size = IS_TOUCH and 34 or 28
 		local row = Row(92, name)
 		TextLabel({ Size = UDim2.new(0.4, 0, 0, 38), Position = UDim2.new(0, 12, 0, 0), Text = name, Parent = row })
@@ -1826,7 +2846,9 @@ local function BuildElements(Target, Container, Tab, Window)
 				Parent = seg,
 			})
 		end
-		local darkBtn, lightBtn = segBtn("Sombre", 0), segBtn("Clair", 0.5)
+		local darkBtn, lightBtn = segBtn(L("dark"), 0), segBtn(L("light"), 0.5)
+		bindText(darkBtn, "Text", Loc("dark"))
+		bindText(lightBtn, "Text", Loc("light"))
 
 		local holder = New("Frame", {
 			Position = UDim2.new(0, 8, 0, 44),
@@ -1982,6 +3004,135 @@ local function BuildElements(Target, Container, Tab, Window)
 		BuildElements(Section, inner, Tab, Window)
 		return Section
 	end
+
+	function Target:MakeLanguagePicker(cfg)
+		cfg = cfg or {}
+		local names, byName = {}, {}
+		for _, code in ipairs(Ghostline.LanguageOrder) do
+			local n = Ghostline.LanguageNames[code] or code
+			table.insert(names, n)
+			byName[n] = code
+		end
+		local dd
+		dd = Target:MakeDropdown({
+			Name = cfg.Name or Loc("language"),
+			Options = names,
+			Default = Ghostline.LanguageNames[Ghostline.Language] or Ghostline.Language,
+			Flag = cfg.Flag,
+			Tooltip = cfg.Tooltip,
+			Callback = function(v)
+				local code = byName[v]
+				if code and code ~= Ghostline.Language then
+					Ghostline:SetLanguage(code)
+				end
+				safe(cfg.Callback, code)
+			end,
+		})
+		Ghostline:OnLanguageChanged(function(code)
+			if not (dd.Instance and dd.Instance.Parent) then
+				return false
+			end
+			dd:Set(Ghostline.LanguageNames[code] or code, true)
+		end)
+		return dd
+	end
+
+	local LOC_FIELDS = { "Name", "Title", "Content", "Placeholder", "Tooltip" }
+	local LOC_FNS = {
+		"MakeLabel", "MakeParagraph", "MakeButton", "MakeToggle", "MakeCheckbox", "MakeSlider",
+		"MakeProgressBar", "MakeTextbox", "MakeDropdown", "MakeKeybind", "MakeColorPicker",
+		"MakeThemePicker", "MakeSection",
+	}
+
+	local function bindSpecs(obj, cfg, specs)
+		local root = obj.Instance
+		if not root then
+			return
+		end
+		for field, spec in pairs(specs) do
+			if field == "Tooltip" then
+				bindFn(root, function()
+					cfg.Tooltip = resolveText(spec)
+				end)
+			elseif field == "__label" then
+				bindText(root, "Text", spec)
+			elseif field == "Placeholder" then
+				for _, d in ipairs(root:GetDescendants()) do
+					if d:IsA("TextBox") and d.PlaceholderText == cfg.Placeholder then
+						bindText(d, "PlaceholderText", spec)
+						break
+					end
+				end
+			else
+				local current = cfg[field]
+				local up = string.upper(current)
+				local pool = root:GetDescendants()
+				table.insert(pool, 1, root)
+				for _, d in ipairs(pool) do
+					if (d:IsA("TextLabel") or d:IsA("TextButton")) and (d.Text == current or d.Text == up) then
+						local isUp = d.Text == up and current ~= up
+						bindFn(d, function()
+							local t = resolveText(spec)
+							d.Text = isUp and string.upper(t) or t
+							if field == "Name" or field == "Title" then
+								for _, e in ipairs(Tab._elements) do
+									if e.Frame == root then
+										e.Name = string.lower(t)
+										e.Label = t
+									end
+								end
+							end
+						end)
+						break
+					end
+				end
+			end
+		end
+	end
+
+	for _, fname in ipairs(LOC_FNS) do
+		local orig = Target[fname]
+		if orig then
+			Target[fname] = function(self, cfg, ...)
+				local specs
+				if fname == "MakeLabel" or (fname == "MakeSection" and isSpec(cfg)) then
+					if isSpec(cfg) then
+						if fname == "MakeLabel" then
+							specs = { __label = cfg }
+							cfg = resolveText(cfg)
+						else
+							specs = { Name = cfg }
+							cfg = { Name = resolveText(cfg) }
+						end
+					end
+				elseif type(cfg) == "table" then
+					if fname == "MakeThemePicker" and cfg.Name == nil then
+						cfg = table.clone(cfg)
+						cfg.Name = Loc("theme")
+					end
+					for _, f in ipairs(LOC_FIELDS) do
+						if isSpec(cfg[f]) then
+							if not specs then
+								specs = {}
+								cfg = table.clone(cfg)
+							end
+							specs[f] = cfg[f]
+							cfg[f] = resolveText(specs[f])
+						end
+					end
+				elseif cfg == nil and fname == "MakeThemePicker" then
+					cfg = { Name = Loc("theme") }
+					specs = { Name = cfg.Name }
+					cfg = { Name = resolveText(specs.Name) }
+				end
+				local obj = orig(self, cfg, ...)
+				if specs and obj then
+					bindSpecs(obj, type(cfg) == "table" and cfg or {}, specs)
+				end
+				return obj
+			end
+		end
+	end
 end
 
 local GOLD1 = Color3.fromRGB(255, 214, 102)
@@ -2024,6 +3175,9 @@ end
 
 function Ghostline.new(cfg)
 	cfg = cfg or {}
+	if cfg.Language then
+		Ghostline:SetLanguage(cfg.Language)
+	end
 	local S = Ghostline.Styles.Ghostline
 	if cfg.Style then
 		local want = string.lower(tostring(cfg.Style))
@@ -2035,10 +3189,10 @@ function Ghostline.new(cfg)
 		end
 	end
 	local isTop = S.Layout == "Top"
-	local lightReq = cfg.Mode == "light" or cfg.Mode == "clair"
+	local lightReq = resolveMode(cfg.Mode) == "light"
 	if S.Palette and not lightReq then
 		local pal = table.clone(S.Palette)
-		local accent = cfg.Theme and Ghostline.Themes[cfg.Theme]
+		local accent = cfg.Theme and Ghostline.Themes[resolveTheme(cfg.Theme) or ""]
 		if accent then
 			local ap = buildPalette(accent, "dark")
 			pal.AccentGlow, pal.AccentDeep, pal.AccentSoft = ap.AccentGlow, ap.AccentDeep, ap.AccentSoft
@@ -2089,7 +3243,7 @@ function Ghostline.new(cfg)
 		Premium = pc.Premium or false,
 		PremiumLabel = pc.PremiumLabel or "PREMIUM",
 		FreeLabel = pc.FreeLabel or "FREE",
-		DisplayName = pc.DisplayName or (player and player.DisplayName) or "Invité",
+		DisplayName = pc.DisplayName or (player and player.DisplayName) or L("guest"),
 		Username = pc.Username or (player and player.Name) or "guest",
 		UserId = (player and player.UserId) or 0,
 		Image = pc.Image,
@@ -2164,8 +3318,11 @@ function Ghostline.new(cfg)
 		}, 135)
 	end
 
+	local fxTweens, fxFrames, fxGrads = {}, {}, {}
+	local fxStroke
 	if S.SpinStroke then
 		local MainStroke = Stroke(Main, WHITE, 1.6, 0.05)
+		fxStroke = MainStroke
 		local strokeGrad = Gradient(MainStroke, {
 			{ 0, Theme.AccentDeep },
 			{ 0.25, Theme.AccentGlow },
@@ -2173,7 +3330,10 @@ function Ghostline.new(cfg)
 			{ 0.75, Theme.AccentGlow },
 			{ 1, Theme.AccentDeep },
 		}, 0)
-		TweenService:Create(strokeGrad, TweenInfo.new(6, EASE.Linear, DIR.Out, -1), { Rotation = 360 }):Play()
+		local spin = TweenService:Create(strokeGrad, TweenInfo.new(6, EASE.Linear, DIR.Out, -1), { Rotation = 360 })
+		spin:Play()
+		table.insert(fxTweens, spin)
+		table.insert(fxGrads, strokeGrad)
 	else
 		Stroke(Main, Theme.Border, 1, 0.1)
 	end
@@ -2194,7 +3354,10 @@ function Ghostline.new(cfg)
 				Parent = Main,
 			})
 			Corner(orb, 999)
-			TweenService:Create(orb, TweenInfo.new(o.t, EASE.Sine, DIR.InOut, -1, true), { Position = o.to }):Play()
+			local drift = TweenService:Create(orb, TweenInfo.new(o.t, EASE.Sine, DIR.InOut, -1, true), { Position = o.to })
+			drift:Play()
+			table.insert(fxTweens, drift)
+			table.insert(fxFrames, orb)
 		end
 	end
 
@@ -2207,6 +3370,7 @@ function Ghostline.new(cfg)
 		})
 		Corner(sheen, S.WindowRadius)
 		Gradient(sheen, { { 0, WHITE }, { 1, WHITE } }, 90, { { 0, 0.9 }, { 1, 1 } })
+		table.insert(fxFrames, sheen)
 		New("Frame", {
 			Position = UDim2.new(0, 14, 0, 0),
 			Size = UDim2.new(1, -28, 0, 1),
@@ -2284,7 +3448,7 @@ function Ghostline.new(cfg)
 		Size = UDim2.new(0, 150, 0, 28),
 		BackgroundColor3 = Theme.BackgroundPrimary,
 		BackgroundTransparency = 0.3,
-		PlaceholderText = "🔍 Rechercher...",
+		PlaceholderText = L("search"),
 		PlaceholderColor3 = Theme.SubText,
 		Text = "",
 		TextColor3 = Theme.Text,
@@ -2296,6 +3460,7 @@ function Ghostline.new(cfg)
 		Parent = Header,
 	})
 	Corner(Search, 8)
+	bindText(Search, "PlaceholderText", Loc("search"))
 	local searchStroke = Stroke(Search, Theme.Border, 1, 0.4)
 	Search.Focused:Connect(function()
 		Tween(searchStroke, 0.25, { Color = Theme.AccentGlow, Transparency = 0 })
@@ -2468,7 +3633,7 @@ function Ghostline.new(cfg)
 	local statusGrad = Gradient(cardStatus, { { 0, Theme.SubText }, { 1, Theme.SubText } }, 0)
 	local hiddenLbl = TextLabel({
 		Size = UDim2.new(1, 0, 1, 0),
-		Text = "Profil masqué",
+		Text = L("profile_hidden"),
 		Font = Enum.Font.Gotham,
 		TextSize = 11,
 		TextColor3 = Theme.SubText,
@@ -2602,14 +3767,15 @@ function Ghostline.new(cfg)
 			Parent = PScroll,
 		})
 		Corner(r, 8)
-		TextLabel({
+		local nameLbl = TextLabel({
 			Size = UDim2.new(0.5, 0, 1, 0),
 			Position = UDim2.new(0, 10, 0, 0),
-			Text = label,
+			Text = resolveText(label),
 			TextSize = 12,
 			TextColor3 = Theme.SubText,
 			Parent = r,
 		})
+		bindText(nameLbl, "Text", label)
 		return TextLabel({
 			Size = UDim2.new(0.5, -20, 1, 0),
 			Position = UDim2.new(0.5, 10, 0, 0),
@@ -2625,15 +3791,22 @@ function Ghostline.new(cfg)
 		robloxPremium = player.MembershipType == Enum.MembershipType.Premium
 		accountAge = player.AccountAge
 	end)
-	InfoRow(5, "ID utilisateur", tostring(Profile.UserId))
-	InfoRow(6, "Roblox Premium", robloxPremium and "Oui" or "Non")
-	InfoRow(7, "Âge du compte", accountAge .. " jours")
-	local sessVal = InfoRow(8, "Session", "00:00:00")
-	local netVal = InfoRow(9, "Performance", "-- fps · -- ms")
+	InfoRow(5, Loc("user_id"), tostring(Profile.UserId))
+	local premVal = InfoRow(6, Loc("roblox_premium"), "")
+	bindFn(premVal, function()
+		premVal.Text = robloxPremium and L("yes") or L("no")
+	end)
+	local ageVal = InfoRow(7, Loc("account_age"), "")
+	bindFn(ageVal, function()
+		ageVal.Text = L("days", accountAge)
+	end)
+	local sessVal = InfoRow(8, Loc("session"), "00:00:00")
+	local netVal = InfoRow(9, Loc("performance"), "-- fps · -- ms")
 
 	TextLabel({
 		Size = UDim2.new(1, -32, 0, 18),
-		Text = "CONFIDENTIALITÉ",
+		Name = "GL_Privacy",
+		Text = L("privacy"),
 		Font = Enum.Font.GothamBold,
 		TextSize = 10,
 		TextColor3 = Theme.AccentSoft,
@@ -2661,7 +3834,7 @@ function Ghostline.new(cfg)
 		row.MouseLeave:Connect(function()
 			Tween(st, 0.25, { Color = Theme.Border, Transparency = 0.5 })
 		end)
-		TextLabel({ Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = text, Parent = row })
+		bindText(TextLabel({ Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = resolveText(text), Parent = row }), "Text", text)
 		local sw = New("Frame", {
 			Size = UDim2.new(0, 44, 0, 22),
 			Position = UDim2.new(1, -56, 0.5, -11),
@@ -2699,17 +3872,18 @@ function Ghostline.new(cfg)
 		table.insert(painters, paint)
 		paint(false)
 	end
-	MiniSwitch(11, "Afficher l'avatar", function()
+	bindText(PScroll:FindFirstChild("GL_Privacy"), "Text", Loc("privacy"))
+	MiniSwitch(11, Loc("show_avatar"), function()
 		return Profile.Avatar
 	end, function(v)
 		Window:SetProfileVisibility(v, nil)
 	end)
-	MiniSwitch(12, "Afficher le pseudo", function()
+	MiniSwitch(12, Loc("show_name"), function()
 		return Profile.Name
 	end, function(v)
 		Window:SetProfileVisibility(nil, v)
 	end)
-	MiniSwitch(13, "Mode streamer (masque le pseudo)", function()
+	MiniSwitch(13, Loc("streamer_long"), function()
 		return Profile.Streamer
 	end, function(v)
 		Window:SetStreamer(v)
@@ -2728,7 +3902,7 @@ function Ghostline.new(cfg)
 	function refreshPanel()
 		panelName.Text = shownName()
 		panelUser.Text = Profile.Streamer and "@••••••" or ("@" .. Profile.Username)
-		badgeText.Text = Profile.Premium and ("★  " .. Profile.PremiumLabel) or Profile.FreeLabel
+		badgeText.Text = Profile.Premium and Profile.PremiumLabel or Profile.FreeLabel
 		if Profile.Premium then
 			badgeGrad.Color = toSeq({ { 0, GOLD1 }, { 1, GOLD2 } })
 			badgeText.TextColor3 = Color3.fromRGB(45, 22, 0)
@@ -2753,7 +3927,7 @@ function Ghostline.new(cfg)
 		To(cardImg, animated, 0.4, { ImageTransparency = (showA and avatarLoaded) and 0 or 1 })
 		To(cardName, animated, 0.3, { TextTransparency = showN and 0 or 1, Position = UDim2.new(0, textX, 0, 9) })
 		To(cardStatus, animated, 0.3, { TextTransparency = showN and 0 or 1, Position = UDim2.new(0, textX, 0, 27) })
-		hiddenLbl.Text = compact and "..." or "Profil masqué"
+		hiddenLbl.Text = compact and "..." or L("profile_hidden")
 		To(hiddenLbl, animated, 0.3, { TextTransparency = ((not showA) and (not showN)) and 0 or 1 })
 		cardName.Text = shownName()
 		cardStatus.Text = Profile.Premium and Profile.PremiumLabel or Profile.FreeLabel
@@ -2973,7 +4147,7 @@ function Ghostline.new(cfg)
 		for _, t in ipairs(Window.Tabs) do
 			local sc = fuzzyScore(q, string.lower(t.Name))
 			if sc then
-				table.insert(found, { score = sc + 5, label = t.Name, sub = "Onglet", tab = t })
+				table.insert(found, { score = sc + 5, label = t.Name, sub = L("tab_label"), tab = t })
 			end
 			for _, e in ipairs(t._elements) do
 				local s2 = fuzzyScore(q, e.Name)
@@ -2994,7 +4168,7 @@ function Ghostline.new(cfg)
 		if count == 0 then
 			TextLabel({
 				Size = UDim2.new(1, 0, 0, 30),
-				Text = "Aucun résultat",
+				Text = L("no_results"),
 				TextColor3 = Theme.SubText,
 				TextXAlignment = Enum.TextXAlignment.Center,
 				Parent = ResultsList,
@@ -3245,6 +4419,15 @@ function Ghostline.new(cfg)
 	end
 
 	function Window:MakeTab(tcfg)
+		local tabSpec
+		if isSpec(tcfg) then
+			tabSpec = tcfg
+			tcfg = { Name = resolveText(tcfg) }
+		elseif type(tcfg) == "table" and isSpec(tcfg.Name) then
+			tabSpec = tcfg.Name
+			tcfg = table.clone(tcfg)
+			tcfg.Name = resolveText(tabSpec)
+		end
 		tcfg = type(tcfg) == "string" and { Name = tcfg } or (tcfg or {})
 		local tabName = tcfg.Name or "Tab"
 		local Tab = { Name = tabName, _elements = {} }
@@ -3301,6 +4484,18 @@ function Ghostline.new(cfg)
 			Parent = btn,
 		})
 		Tab._btn, Tab._lbl, Tab._letter = btn, lbl, letter
+		if tabSpec then
+			bindFn(lbl, function()
+				local t = resolveText(tabSpec)
+				Tab.Name = t
+				lbl.Text = t
+				letter.Text = string.upper(string.sub(t, 1, 1))
+				if isTop then
+					local w = TextService:GetTextSize(t, 13, Enum.Font.GothamMedium, Vector2.new(400, 30)).X
+					btn.Size = UDim2.new(0, w + (tcfg.Icon and 48 or 28), 0, 26)
+				end
+			end)
+		end
 
 		local Container = New("ScrollingFrame", {
 			Size = UDim2.new(1, -20, 1, -16),
@@ -3353,51 +4548,84 @@ function Ghostline.new(cfg)
 	end
 	Window.CreateTab = Window.MakeTab
 
+	function Window:SetPerformanceMode(on)
+		on = on and true or false
+		Window.Performance = on
+		for _, tw in ipairs(fxTweens) do
+			if on then
+				tw:Pause()
+			else
+				tw:Play()
+			end
+		end
+		for _, f in ipairs(fxFrames) do
+			f.Visible = not on
+		end
+		for _, g in ipairs(fxGrads) do
+			g.Enabled = not on
+		end
+		if fxStroke then
+			fxStroke.Color = on and Theme.AccentDeep or WHITE
+		end
+		if on then
+			Window._blurBefore = Window.BlurOn
+			Window:SetBlur(false)
+		elseif Window._blurBefore ~= nil then
+			Window:SetBlur(Window._blurBefore)
+			Window._blurBefore = nil
+		end
+	end
+
+	function Window:SetLanguage(code)
+		return Ghostline:SetLanguage(code)
+	end
+
 	function Window:MakeSettingsTab(scfg)
 		scfg = scfg or {}
-		local tab = Window:MakeTab({ Name = scfg.Name or "Réglages", Icon = scfg.Icon })
+		local tab = Window:MakeTab({ Name = scfg.Name or Loc("settings"), Icon = scfg.Icon })
 
-		local look = tab:MakeSection({ Name = "Apparence" })
-		look:MakeThemePicker({ Name = "Thème", Flag = "gl_theme", Tooltip = "Couleur + mode sombre / clair" })
+		local look = tab:MakeSection({ Name = Loc("appearance") })
+		look:MakeThemePicker({ Name = Loc("theme"), Flag = "gl_theme", Tooltip = Loc("theme_tip") })
+		look:MakeLanguagePicker({ Flag = "gl_language" })
 
-		local ui = tab:MakeSection({ Name = "Interface" })
+		local ui = tab:MakeSection({ Name = Loc("interface") })
 		ui:MakeSlider({
-			Name = "Taille de l'interface", Min = 70, Max = 130, Default = 100, Increment = 5, Suffix = "%",
-			Flag = "gl_scale", Tooltip = "Agrandit ou réduit toute l'interface (utile sur tablette/mobile)",
+			Name = Loc("ui_scale"), Min = 70, Max = 130, Default = 100, Increment = 5, Suffix = "%",
+			Flag = "gl_scale", Tooltip = Loc("ui_scale_tip"),
 			Callback = function(v)
 				Window:SetUserScale(v / 100)
 			end,
 		})
 		ui:MakeSlider({
-			Name = "Opacité du verre", Min = 0, Max = 60, Default = math.floor(S.MainAlpha * 100 + 0.5), Suffix = "%", Flag = "gl_glass",
+			Name = Loc("glass"), Min = 0, Max = 60, Default = math.floor(S.MainAlpha * 100 + 0.5), Suffix = "%", Flag = "gl_glass",
 			Callback = function(v)
 				Window:SetGlass(v / 100)
 			end,
 		})
 		ui:MakeSlider({
-			Name = "Vitesse des animations", Min = 50, Max = 200, Default = 100, Increment = 10, Suffix = "%",
+			Name = Loc("anim_speed"), Min = 50, Max = 200, Default = 100, Increment = 10, Suffix = "%",
 			Flag = "gl_speed", Tooltip = "100% = normal. Plus haut = plus rapide",
 			Callback = function(v)
 				Ghostline.AnimSpeed = v / 100
 			end,
 		})
 		ui:MakeToggle({
-			Name = "Flou d'arrière-plan", Default = Window.BlurOn, Flag = "gl_blur",
+			Name = Loc("blur"), Default = Window.BlurOn, Flag = "gl_blur",
 			Callback = function(v)
 				Window:SetBlur(v)
 			end,
 		})
 		if not isTop then
 			ui:MakeToggle({
-				Name = "Barre latérale compacte", Default = Window.Compact, Flag = "gl_compact",
-				Tooltip = "Automatique sur petit écran",
+				Name = Loc("compact"), Default = Window.Compact, Flag = "gl_compact",
+				Tooltip = Loc("compact_tip"),
 				Callback = function(v)
 					Window:SetCompact(v)
 				end,
 			})
 		end
 		ui:MakeKeybind({
-			Name = "Afficher / masquer", Default = Window.ToggleKey,
+			Name = Loc("toggle_key"), Default = Window.ToggleKey,
 			Changed = function(k)
 				if k ~= Enum.KeyCode.Unknown then
 					Window.ToggleKey = k
@@ -3405,21 +4633,28 @@ function Ghostline.new(cfg)
 			end,
 		})
 
-		local pf = tab:MakeSection({ Name = "Profil" })
+		ui:MakeToggle({
+			Name = Loc("perf"), Tooltip = Loc("perf_tip"), Default = Window.Performance or false, Flag = "gl_perf",
+			Callback = function(v)
+				Window:SetPerformanceMode(v)
+			end,
+		})
+
+		local pf = tab:MakeSection({ Name = Loc("profile") })
 		local tA = pf:MakeToggle({
-			Name = "Afficher l'avatar", Default = Profile.Avatar, Flag = "gl_show_avatar",
+			Name = Loc("show_avatar"), Default = Profile.Avatar, Flag = "gl_show_avatar",
 			Callback = function(v)
 				Window:SetProfileVisibility(v, nil)
 			end,
 		})
 		local tN = pf:MakeToggle({
-			Name = "Afficher le pseudo", Default = Profile.Name, Flag = "gl_show_name",
+			Name = Loc("show_name"), Default = Profile.Name, Flag = "gl_show_name",
 			Callback = function(v)
 				Window:SetProfileVisibility(nil, v)
 			end,
 		})
 		local tS = pf:MakeToggle({
-			Name = "Mode streamer", Default = Profile.Streamer, Flag = "gl_streamer",
+			Name = Loc("streamer"), Default = Profile.Streamer, Flag = "gl_streamer",
 			Tooltip = "Masque ton pseudo partout dans l'interface",
 			Callback = function(v)
 				Window:SetStreamer(v)
@@ -3431,17 +4666,17 @@ function Ghostline.new(cfg)
 			tS:Set(Profile.Streamer, true)
 		end
 
-		local cf = tab:MakeSection({ Name = "Configurations" })
+		local cf = tab:MakeSection({ Name = Loc("configs") })
 		local cfgName = "default"
 		local list
 		cf:MakeTextbox({
-			Name = "Nom", Default = cfgName, Placeholder = "default",
+			Name = Loc("cfg_name"), Default = cfgName, Placeholder = "default",
 			Callback = function(t)
 				cfgName = (t ~= "" and t) or "default"
 			end,
 		})
 		list = cf:MakeDropdown({
-			Name = "Existantes", Options = Ghostline:ListConfigs(),
+			Name = Loc("cfg_existing"), Options = Ghostline:ListConfigs(),
 			Callback = function(v)
 				if v then
 					cfgName = v
@@ -3449,29 +4684,63 @@ function Ghostline.new(cfg)
 			end,
 		})
 		cf:MakeButton({
-			Name = "Sauvegarder",
+			Name = Loc("save"),
 			Callback = function()
 				local ok, err = Ghostline:SaveConfig(cfgName)
 				Ghostline:Notify({
-					Title = ok and "Config sauvegardée" or "Échec", Content = ok and cfgName or tostring(err),
+					Title = ok and L("cfg_saved") or L("failed"), Content = ok and cfgName or tostring(err),
 					Type = ok and "Success" or "Error",
 				})
 				list:Refresh(Ghostline:ListConfigs())
 			end,
 		})
 		cf:MakeButton({
-			Name = "Charger",
+			Name = Loc("load"),
 			Callback = function()
 				local ok, err = Ghostline:LoadConfig(cfgName)
 				Ghostline:Notify({
-					Title = ok and "Config chargée" or "Échec", Content = ok and cfgName or tostring(err),
+					Title = ok and L("cfg_loaded") or L("failed"), Content = ok and cfgName or tostring(err),
+					Type = ok and "Success" or "Error",
+				})
+			end,
+		})
+		cf:MakeButton({
+			Name = Loc("delete"),
+			Callback = function()
+				local ok, err = Ghostline:DeleteConfig(cfgName)
+				Ghostline:Notify({
+					Title = ok and L("cfg_deleted") or L("failed"), Content = ok and cfgName or tostring(err),
+					Type = ok and "Success" or "Error",
+				})
+				list:Refresh(Ghostline:ListConfigs())
+			end,
+		})
+		cf:MakeButton({
+			Name = Loc("export_cfg"),
+			Callback = function()
+				local ok = type(setclipboard) == "function" and pcall(setclipboard, Ghostline:ExportConfig())
+				Ghostline:Notify({
+					Title = ok and L("cfg_exported") or L("failed"), Content = cfgName,
+					Type = ok and "Success" or "Error",
+				})
+			end,
+		})
+		cf:MakeTextbox({
+			Name = Loc("import_cfg"), Placeholder = Loc("import_ph"),
+			Callback = function(t)
+				if t == "" then
+					return
+				end
+				local ok, err = Ghostline:ImportConfig(t)
+				Ghostline:Notify({
+					Title = ok and L("cfg_imported") or L("failed"), Content = ok and cfgName or tostring(err),
 					Type = ok and "Success" or "Error",
 				})
 			end,
 		})
 		cf:MakeToggle({
-			Name = "Sauvegarde automatique",
-			Tooltip = "Enregistre à chaque changement (le nom ci-dessus est utilisé)",
+			Name = Loc("auto_save"),
+			Tooltip = Loc("auto_save_tip"),
 			Callback = function(v)
 				if v then
 					Ghostline:EnableAutoSave(cfgName)
@@ -3481,8 +4750,8 @@ function Ghostline.new(cfg)
 			end,
 		})
 		tab:MakeParagraph({
-			Title = "Astuces",
-			Content = "Clic droit (ou appui long) sur un réglage : remise à zéro.\nDouble-clic sur un slider : valeur par défaut.\nCtrl+K : recherche globale.",
+			Title = Loc("tips"),
+			Content = Loc("tips_body"),
 		})
 		return tab
 	end
@@ -3680,6 +4949,9 @@ function Ghostline.new(cfg)
 	Tween(Scale, 0.8, { Scale = Window.UserScale }, EASE.Back)
 	applyBlur()
 
+	if cfg.Performance then
+		Window:SetPerformanceMode(true)
+	end
 	return Window
 end
 
