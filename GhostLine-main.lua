@@ -12,7 +12,7 @@ local LocalizationService = game:GetService("LocalizationService")
 
 local Ghostline = {}
 Ghostline.__index = Ghostline
-Ghostline.Version = "2.4.0"
+Ghostline.Version = "2.5.0"
 Ghostline.Flags = {}
 Ghostline.Windows = {}
 Ghostline.ConfigFolder = "Ghostline"
@@ -992,15 +992,15 @@ end
 
 Ghostline:AddStyle("Rayfield", {
 	Layout = "Top",
-	Header = 44,
-	Size = Vector2.new(580, 410),
-	WindowRadius = 10,
+	Header = 52,
+	Size = Vector2.new(600, 430),
+	WindowRadius = 12,
 	PanelRadius = 10,
-	SidebarRadius = 8,
-	TabRadius = 7,
-	RowRadius = 6,
-	SectionRadius = 8,
-	NotifRadius = 8,
+	SidebarRadius = 20,
+	TabRadius = 20,
+	RowRadius = 8,
+	SectionRadius = 10,
+	NotifRadius = 10,
 	MainAlpha = 0,
 	RowAlpha = 0,
 	RowHoverAlpha = 0,
@@ -1018,36 +1018,37 @@ Ghostline:AddStyle("Rayfield", {
 	Indicator = false,
 	Toggle = "Pill",
 	LauncherText = "R",
+	-- Palette matches the real Rayfield library's dark charcoal look with teal accent
 	Palette = {
-		BackgroundPrimary = Color3.fromRGB(25, 25, 25),
-		BackgroundSecondary = Color3.fromRGB(32, 32, 32),
-		GlassTint = Color3.fromRGB(40, 40, 40),
-		Border = Color3.fromRGB(56, 56, 56),
-		Text = Color3.fromRGB(240, 240, 240),
-		SubText = Color3.fromRGB(160, 160, 160),
-		AccentGlow = Color3.fromRGB(0, 146, 214),
-		AccentDeep = Color3.fromRGB(0, 108, 162),
-		AccentSoft = Color3.fromRGB(96, 184, 242),
+		BackgroundPrimary = Color3.fromRGB(22, 22, 22),
+		BackgroundSecondary = Color3.fromRGB(30, 30, 30),
+		GlassTint = Color3.fromRGB(42, 42, 42),
+		Border = Color3.fromRGB(58, 58, 58),
+		Text = Color3.fromRGB(242, 242, 242),
+		SubText = Color3.fromRGB(155, 155, 155),
+		AccentGlow = Color3.fromRGB(20, 184, 166),
+		AccentDeep = Color3.fromRGB(13, 137, 124),
+		AccentSoft = Color3.fromRGB(94, 234, 212),
 	},
 })
 
 Ghostline:AddStyle("Orion", {
 	Layout = "Side",
-	Header = 44,
-	Size = Vector2.new(620, 410),
-	Sidebar = 150,
-	WindowRadius = 8,
-	PanelRadius = 8,
-	SidebarRadius = 6,
-	TabRadius = 5,
-	RowRadius = 5,
-	SectionRadius = 6,
-	NotifRadius = 6,
+	Header = 46,
+	Size = Vector2.new(630, 420),
+	Sidebar = 155,
+	WindowRadius = 10,
+	PanelRadius = 10,
+	SidebarRadius = 8,
+	TabRadius = 7,
+	RowRadius = 7,
+	SectionRadius = 8,
+	NotifRadius = 8,
 	MainAlpha = 0,
 	RowAlpha = 0,
 	RowHoverAlpha = 0,
 	SidebarAlpha = 0,
-	TabActiveAlpha = 0.35,
+	TabActiveAlpha = 0.28,
 	MainGradient = false,
 	RowGradient = false,
 	RowHoverStroke = true,
@@ -1060,16 +1061,17 @@ Ghostline:AddStyle("Orion", {
 	Indicator = true,
 	Toggle = "Box",
 	LauncherText = "O",
+	-- Palette matches real Orion: deep midnight blue with a soft purple accent
 	Palette = {
-		BackgroundPrimary = Color3.fromRGB(21, 21, 26),
-		BackgroundSecondary = Color3.fromRGB(29, 29, 36),
-		GlassTint = Color3.fromRGB(37, 37, 46),
-		Border = Color3.fromRGB(62, 62, 76),
-		Text = Color3.fromRGB(238, 238, 244),
-		SubText = Color3.fromRGB(148, 148, 162),
-		AccentGlow = Color3.fromRGB(9, 99, 195),
-		AccentDeep = Color3.fromRGB(6, 70, 140),
-		AccentSoft = Color3.fromRGB(80, 150, 235),
+		BackgroundPrimary = Color3.fromRGB(18, 18, 24),
+		BackgroundSecondary = Color3.fromRGB(26, 26, 34),
+		GlassTint = Color3.fromRGB(36, 36, 48),
+		Border = Color3.fromRGB(68, 68, 88),
+		Text = Color3.fromRGB(236, 236, 245),
+		SubText = Color3.fromRGB(142, 142, 165),
+		AccentGlow = Color3.fromRGB(124, 111, 205),
+		AccentDeep = Color3.fromRGB(86, 75, 152),
+		AccentSoft = Color3.fromRGB(178, 170, 238),
 	},
 })
 
@@ -2140,16 +2142,19 @@ local function BuildElements(Target, Container, Tab, Window)
 				Tween(boxStroke, 0.25, { Color = v and Theme.AccentGlow or Theme.Border })
 			end
 		else
+			local trackW, trackH = 52, 26
+			local knobSz = 20
+			local knobOff = 3
 			local track = New("Frame", {
-				Size = UDim2.new(0, 44, 0, 22),
-				Position = UDim2.new(1, -56, 0.5, -11),
+				Size = UDim2.new(0, trackW, 0, trackH),
+				Position = UDim2.new(1, -(trackW + 12), 0.5, -trackH / 2),
 				BackgroundColor3 = Theme.BackgroundPrimary,
 				BorderSizePixel = 0,
 				ClipsDescendants = true,
 				Parent = row,
 			})
-			Corner(track, 11)
-			Stroke(track, Theme.Border, 1, 0.3)
+			Corner(track, trackH / 2)
+			Stroke(track, Theme.Border, 1, 0.25)
 			local onFill = New("Frame", {
 				Size = UDim2.new(1, 0, 1, 0),
 				BackgroundColor3 = WHITE,
@@ -2157,19 +2162,22 @@ local function BuildElements(Target, Container, Tab, Window)
 				BorderSizePixel = 0,
 				Parent = track,
 			})
-			Corner(onFill, 11)
+			Corner(onFill, trackH / 2)
 			Gradient(onFill, { { 0, Theme.AccentDeep }, { 1, Theme.AccentGlow } }, 0)
 			local knob = New("Frame", {
-				Size = UDim2.new(0, 16, 0, 16),
-				Position = UDim2.new(0, 3, 0.5, -8),
-				BackgroundColor3 = Theme.Text,
+				Size = UDim2.new(0, knobSz, 0, knobSz),
+				Position = UDim2.new(0, knobOff, 0.5, -knobSz / 2),
+				BackgroundColor3 = WHITE,
 				BorderSizePixel = 0,
 				Parent = track,
 			})
-			Corner(knob, 8)
+			Corner(knob, knobSz / 2)
 			apply = function(v)
 				Tween(onFill, 0.3, { BackgroundTransparency = v and 0 or 1 })
-				Tween(knob, 0.4, { Position = v and UDim2.new(0, 25, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }, EASE.Back)
+				local onPos = UDim2.new(0, trackW - knobSz - knobOff, 0.5, -knobSz / 2)
+				local offPos = UDim2.new(0, knobOff, 0.5, -knobSz / 2)
+				Tween(knob, 0.4, { Position = v and onPos or offPos }, EASE.Back)
+				Tween(knob, 0.25, { BackgroundColor3 = v and WHITE or Theme.SubText })
 			end
 		end
 
@@ -3133,6 +3141,25 @@ local function BuildElements(Target, Container, Tab, Window)
 			end
 		end
 	end
+
+	-- ── Short API aliases ──────────────────────────────────────────────────────
+	-- All Make* methods are available as shorter camelCase equivalents so both
+	-- styles work:  Tab:MakeButton({...})  and  Tab:Button({...})
+	Target.Button       = Target.MakeButton
+	Target.Toggle       = Target.MakeToggle
+	Target.Checkbox     = Target.MakeCheckbox
+	Target.Slider       = Target.MakeSlider
+	Target.Progress     = Target.MakeProgressBar
+	Target.Textbox      = Target.MakeTextbox
+	Target.Dropdown     = Target.MakeDropdown
+	Target.Keybind      = Target.MakeKeybind
+	Target.ColorPicker  = Target.MakeColorPicker
+	Target.Label        = Target.MakeLabel
+	Target.Paragraph    = Target.MakeParagraph
+	Target.Divider      = Target.MakeDivider
+	Target.Section      = Target.MakeSection
+	Target.ThemePicker  = Target.MakeThemePicker
+	Target.LanguagePicker = Target.MakeLanguagePicker
 end
 
 local GOLD1 = Color3.fromRGB(255, 214, 102)
@@ -3835,16 +3862,19 @@ function Ghostline.new(cfg)
 			Tween(st, 0.25, { Color = Theme.Border, Transparency = 0.5 })
 		end)
 		bindText(TextLabel({ Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), Text = resolveText(text), Parent = row }), "Text", text)
+		local swW, swH = 52, 26
+		local swKnob = 20
+		local swOff = 3
 		local sw = New("Frame", {
-			Size = UDim2.new(0, 44, 0, 22),
-			Position = UDim2.new(1, -56, 0.5, -11),
+			Size = UDim2.new(0, swW, 0, swH),
+			Position = UDim2.new(1, -(swW + 12), 0.5, -swH / 2),
 			BackgroundColor3 = Theme.BackgroundPrimary,
 			BorderSizePixel = 0,
 			ClipsDescendants = true,
 			Parent = row,
 		})
-		Corner(sw, 11)
-		Stroke(sw, Theme.Border, 1, 0.3)
+		Corner(sw, swH / 2)
+		Stroke(sw, Theme.Border, 1, 0.25)
 		local onFill = New("Frame", {
 			Size = UDim2.new(1, 0, 1, 0),
 			BackgroundColor3 = WHITE,
@@ -3852,19 +3882,22 @@ function Ghostline.new(cfg)
 			BorderSizePixel = 0,
 			Parent = sw,
 		})
+		Corner(onFill, swH / 2)
 		Gradient(onFill, { { 0, Theme.AccentDeep }, { 1, Theme.AccentGlow } }, 0)
 		local knob = New("Frame", {
-			Size = UDim2.new(0, 16, 0, 16),
-			Position = UDim2.new(0, 3, 0.5, -8),
-			BackgroundColor3 = Theme.Text,
+			Size = UDim2.new(0, swKnob, 0, swKnob),
+			Position = UDim2.new(0, swOff, 0.5, -swKnob / 2),
+			BackgroundColor3 = WHITE,
 			BorderSizePixel = 0,
 			Parent = sw,
 		})
-		Corner(knob, 8)
+		Corner(knob, swKnob / 2)
 		local function paint(animated)
 			local v = get()
 			To(onFill, animated, 0.3, { BackgroundTransparency = v and 0 or 1 })
-			To(knob, animated, 0.4, { Position = v and UDim2.new(0, 25, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }, EASE.Back)
+			local onPos = UDim2.new(0, swW - swKnob - swOff, 0.5, -swKnob / 2)
+			local offPos = UDim2.new(0, swOff, 0.5, -swKnob / 2)
+			To(knob, animated, 0.4, { Position = v and onPos or offPos, BackgroundColor3 = v and WHITE or Theme.SubText }, EASE.Back)
 		end
 		row.MouseButton1Click:Connect(function()
 			set(not get())
@@ -4401,11 +4434,20 @@ function Ghostline.new(cfg)
 		Window.CurrentTab = tab
 		for _, t in ipairs(Window.Tabs) do
 			local active = t == tab
-			Tween(t._btn, 0.3, { BackgroundTransparency = active and S.TabActiveAlpha or 1 })
-			Tween(t._lbl, 0.3, { TextColor3 = active and Theme.Text or Theme.SubText })
-			Tween(t._letter, 0.3, { TextColor3 = active and Theme.Text or Theme.SubText })
+			-- Top-layout (Rayfield style): active pill gets a solid accent fill
+			if isTop and S.TabFlat then
+				Tween(t._btn, 0.25, {
+					BackgroundColor3 = active and Theme.AccentGlow or Theme.GlassTint,
+					BackgroundTransparency = active and 0 or 1,
+				})
+			else
+				Tween(t._btn, 0.3, { BackgroundTransparency = active and S.TabActiveAlpha or 1 })
+			end
+			local textActive = (isTop and S.TabFlat) and (active and WHITE or Theme.SubText) or (active and Theme.Text or Theme.SubText)
+			Tween(t._lbl, 0.25, { TextColor3 = textActive })
+			Tween(t._letter, 0.25, { TextColor3 = textActive })
 			if t._icon then
-				Tween(t._icon, 0.3, { ImageColor3 = active and Theme.AccentGlow or Theme.SubText })
+				Tween(t._icon, 0.25, { ImageColor3 = active and (isTop and WHITE or Theme.AccentGlow) or Theme.SubText })
 			end
 			if not active then
 				t._container.Visible = false
@@ -4434,12 +4476,13 @@ function Ghostline.new(cfg)
 		table.insert(Window.Tabs, Tab)
 		Tab._index = #Window.Tabs
 
+		local tabPillH = isTop and (S.Header >= 50 and 30 or 26) or 36
 		local tabW = 0
 		if isTop then
-			tabW = TextService:GetTextSize(tabName, 13, Enum.Font.GothamMedium, Vector2.new(400, 30)).X + (tcfg.Icon and 48 or 28)
+			tabW = TextService:GetTextSize(tabName, 13, Enum.Font.GothamMedium, Vector2.new(400, 30)).X + (tcfg.Icon and 52 or 32)
 		end
 		local btn = New("TextButton", {
-			Size = isTop and UDim2.new(0, tabW, 0, 26) or UDim2.new(1, -16, 0, 36),
+			Size = isTop and UDim2.new(0, tabW, 0, tabPillH) or UDim2.new(1, -16, 0, 36),
 			BackgroundColor3 = S.TabFlat and Theme.GlassTint or Theme.AccentDeep,
 			BackgroundTransparency = 1,
 			Text = "",
@@ -4492,7 +4535,7 @@ function Ghostline.new(cfg)
 				letter.Text = string.upper(string.sub(t, 1, 1))
 				if isTop then
 					local w = TextService:GetTextSize(t, 13, Enum.Font.GothamMedium, Vector2.new(400, 30)).X
-					btn.Size = UDim2.new(0, w + (tcfg.Icon and 48 or 28), 0, 26)
+					btn.Size = UDim2.new(0, w + (tcfg.Icon and 52 or 32), 0, tabPillH)
 				end
 			end)
 		end
@@ -4546,7 +4589,9 @@ function Ghostline.new(cfg)
 		end
 		return Tab
 	end
-	Window.CreateTab = Window.MakeTab
+	Window.CreateTab   = Window.MakeTab
+	Window.Tab         = Window.MakeTab       -- short alias
+	Window.SettingsTab = Window.MakeSettingsTab -- short alias
 
 	function Window:SetPerformanceMode(on)
 		on = on and true or false
@@ -4956,6 +5001,22 @@ function Ghostline.new(cfg)
 end
 
 Ghostline.CreateWindow = Ghostline.new
+
+-- ── Notify shorthands ────────────────────────────────────────────────────────
+-- Instead of  Ghostline:Notify({ Title="…", Content="…", Type="Success" })
+-- you can use Ghostline:Success("Title", "Content")  etc.
+function Ghostline:Info(title, content, time)
+	Ghostline:Notify({ Title = title, Content = content or "", Type = "Info", Time = time })
+end
+function Ghostline:Success(title, content, time)
+	Ghostline:Notify({ Title = title, Content = content or "", Type = "Success", Time = time })
+end
+function Ghostline:Warn(title, content, time)
+	Ghostline:Notify({ Title = title, Content = content or "", Type = "Warning", Time = time })
+end
+function Ghostline:Error(title, content, time)
+	Ghostline:Notify({ Title = title, Content = content or "", Type = "Error", Time = time })
+end
 
 function Ghostline:Destroy()
 	for _, w in ipairs(table.clone(Ghostline.Windows)) do
